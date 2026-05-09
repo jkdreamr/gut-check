@@ -1,0 +1,34 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ProposalLog {
+  id             String    @id @default(cuid())
+  userId         String
+  userName       String
+  scenarioId     String
+  scenarioName   String
+  scenarioType   String    // "warning" | "nudge"
+  confidence     Float
+  headline       String
+  body           String
+  evidence       String    // JSON array of evidence strings
+  sentAt         DateTime  @default(now())
+  accepted       Boolean?
+  acceptedAt     DateTime?
+  newnalCircleId String?
+  newnalResponse String?
+}
+
+model ScenarioConfig {
+  id        String  @id
+  name      String
+  type      String  // "warning" | "nudge"
+  enabled   Boolean @default(true)
+  threshold Float   @default(0.5)
+}

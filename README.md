@@ -1,36 +1,124 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# The Gut Check
 
-## Getting Started
+A Newnal Service Agent for the Stanford AI OS Hackathon (May 9–10, 2026).
 
-First, run the development server:
+> Sends personalized, data-driven proposals to users at the moment of decision —
+> warning them against purchases they've regretted before, or nudging them toward
+> opportunities their data already says they want.
+
+This Service Agent runs on top of the [Newnal Agent Place](https://agentplace.newnal.ai/)
+public API. It discovers Personal AIs in the Newnal Plaza, runs their categorized
+profile through an **11-scenario rule engine**, generates a proposal card, and
+fires it as a **Newnal-Circle** to the user's phone via the official UI Template.
+
+## What it does
+
+The Gut Check's rule engine ships **6 warnings + 5 nudges**:
+
+| ID  | Name                       | Type    | Trigger (high level) |
+|-----|----------------------------|---------|----------------------|
+| W1  | Ghost Gym                  | warning | 2+ past gyms cancelled <90 days, near a gym |
+| W2  | Ghost Subscription         | warning | 3+ active subs unused for 30+ days |
+| W3  | Repeat Regret              | warning | 3+ purchases in same category, >50% abandoned |
+| W4  | Friend Warning             | warning | Restaurant nearby with avg friend rating <3.0 |
+| W5  | Better Restaurant Nearby   | warning | A loyal spot is closer than the new option |
+| W6  | Similar Disappointment     | warning | 2+ similar past purchases returned/underused |
+| P1  | Seasonal Gap               | nudge   | No seasonal purchase in 12+ months, near store |
+| P2  | Dormant Interest Activated | nudge   | Searched 30–180 days ago, never bought, now near store |
+| P3  | New Version Available      | nudge   | Tech purchase 18+ months old, near electronics store |
+| P4  | Health Goal Alignment      | nudge   | Stated goal + below target + nearby gym + no ghost-gym pattern |
+| P5  | Loyal Spot Reminder        | nudge   | 5+ visit / 70%+ return spot, not visited 60+ days, now nearby |
+
+## How it talks to Newnal
+
+| Endpoint | Used for |
+|----------|----------|
+| `POST /api/service-agent/personal-ai/search` | Natural-language discovery in the Plaza |
+| `GET  /api/service-agent/personal-ai/{did}`  | Categorized personal + AI data |
+| `POST /api/service-agent/circle/simple`      | Fallback raw text Newnal-Circle |
+| `POST /api/service-agent/circle/template`    | Default — UI-template-driven Circle (preset `official.admin.update.notice`) |
+| `GET  /api/service-agent/circle/sent`        | "Live from Newnal" panel on the Proposals page |
+| `POST /api/service-agent/drive/upload`       | Optional background image / voice URL for richer cards |
+
+The Gut Check sends Newnal-Circles by default through the
+**official.admin.update.notice** UI Template (placeholders
+`Simple Text0-headline` and `Simple Text0-body`) so they render as the same
+notice card the platform itself uses.
+
+## Synthesis adapter
+
+Some signals the rule engine wants — gym cancellation history, subscription
+*usage* frequency, friends' ratings of nearby places, phone search history with
+categories, nearby-place telemetry — are **not exposed** in the live Newnal API.
+The Gut Check's [synthesis adapter](lib/synthesize.ts) deterministically fills
+these gaps from a DID-seeded RNG. Two calls with the same DID always produce
+the same synthesized profile, so screenshots, demos, and proposal logs stay
+reproducible. Real fields (recent purchases, restaurants, education, language,
+character/values radar values, location) come from the API verbatim.
+
+## Stack
+
+- Next.js 14 (App Router), TypeScript
+- Tailwind CSS + Recharts (radar + bar charts)
+- Prisma + SQLite (proposal log + scenario config — zero external deps)
+- Optional Anthropic Claude (`ANTHROPIC_API_KEY`) for richer proposal copy;
+  ships with a deterministic template generator that requires no key
+
+## Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local       # then fill in NEWNAL_API_KEY
+npx prisma db push               # creates prisma/dev.db
+npm run dev                      # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`.env.local`:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```env
+NEWNAL_API_BASE=https://agentplace.newnal.ai/api/service-agent
+NEWNAL_API_KEY=nsa_<your-key>
+DATABASE_URL="file:./dev.db"
+# Optional — set to enable Claude-generated proposal copy:
+# ANTHROPIC_API_KEY=
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Pages
 
-## Learn More
+| Route                | What's there |
+|----------------------|--------------|
+| `/`                  | Dashboard: 4 metric cards + acceptance bar chart + recent proposals + most-recent phone preview |
+| `/users`             | Plaza search via natural-language query, results grid with mini-radar per user |
+| `/users/[did]`       | Detail: credibility score, profile snapshot pills, 2 radar charts, 4 category cards, **Run Gut Check** panel + send-proposal flow |
+| `/proposals`         | Local history table + "Live from Newnal" panel reading `/circle/sent` |
+| `/scenarios`         | All 11 scenarios with toggle + threshold slider + fire/acceptance counters |
+| `/demo`              | Full-screen split-view live demo with 3 mock users + animated phone mockup |
 
-To learn more about Next.js, take a look at the following resources:
+## API routes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Route                              | Wraps |
+|-------------------------------------|-------|
+| `GET  /api/users?q=<NL>`            | `/personal-ai/search` (returns adapted user summaries) |
+| `GET  /api/users/[did]`             | `/personal-ai/{did}` (returns adapted profile) |
+| `POST /api/analyze`                 | runs the 11 scenarios + generates top-3 proposal copy |
+| `POST /api/propose`                 | sends via `/circle/template` (or `/circle/simple`) and logs |
+| `GET  /api/proposals` / `PATCH`     | local history + acceptance toggle |
+| `GET  /api/scenarios` / `PATCH`     | scenario config |
+| `GET  /api/circle/sent`             | proxies `/circle/sent` for the live panel |
+| `POST /api/drive/upload`            | proxies `/drive/upload` |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Demo Mode
 
-## Deploy on Vercel
+The `/demo` route ships three engineered mock users that *guarantee* specific
+scenarios fire:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Alex Park** (28, SF) → Ghost Gym (2 cancelled gym memberships, near a new one)
+- **Jordan Reyes** (34, Palo Alto) → Friend Warning (nearby restaurant rated 2.3/5 by 5 friends)
+- **Sam Chen** (26, Menlo Park) → Dormant Interest (Brooks Ghost 16 search 45 days ago, near Fleet Feet)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+When the demo user is selected, sends are simulated locally rather than firing a
+Newnal-Circle, so you can present without polluting the live `/circle/sent` log.
+
+## License
+
+Built for the Stanford AI OS Hackathon. MIT.
