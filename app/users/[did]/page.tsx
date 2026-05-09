@@ -128,7 +128,7 @@ export default async function UserDetailPage({ params }: Props) {
         </section>
 
         {/* Gut Check Analyze */}
-        <AnalyzePanel userId={profile.id} userName={profile.displayName} isDemo={profile.id.startsWith('demo:')} />
+        <AnalyzePanel userId={profile.id} userName={profile.displayName} />
 
         {/* Insight breakdown by category */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">

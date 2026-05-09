@@ -42,7 +42,11 @@ export async function POST(req: NextRequest) {
   }
 
   const isDemo = body.userId.startsWith('demo:');
-  const useTemplate = body.useTemplate ?? true;
+  // Live testing showed /circle/template returns `success:false` for some
+  // presets (the circle is still created but the API flag is misleading),
+  // while /circle/simple returns success:true reliably. We default to simple
+  // and let the caller opt into template explicitly.
+  const useTemplate = body.useTemplate ?? false;
 
   let circleId: string | null = null;
   let success = true;

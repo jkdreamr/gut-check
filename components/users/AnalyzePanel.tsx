@@ -21,10 +21,9 @@ interface AnalyzeResp {
 interface Props {
   userId: string;
   userName: string;
-  isDemo?: boolean;
 }
 
-export function AnalyzePanel({ userId, userName, isDemo }: Props) {
+export function AnalyzePanel({ userId, userName }: Props) {
   const [analysis, setAnalysis] = useState<AnalyzeResp | null>(null);
   const [running, setRunning] = useState(false);
   const [active, setActive] = useState<number | null>(null);
@@ -71,7 +70,6 @@ export function AnalyzePanel({ userId, userName, isDemo }: Props) {
           evidence: entry.scenario.evidencePoints,
           headline: entry.headline,
           body: entry.body,
-          useTemplate: !isDemo,
         }),
       });
       const data = (await res.json()) as { circleId?: string; success: boolean; error?: string };
