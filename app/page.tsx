@@ -5,6 +5,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { ProposalCard } from '@/components/proposals/ProposalCard';
 import { AcceptanceRateBar } from '@/components/proposals/AcceptanceRateBar';
 import { prisma } from '@/lib/prisma';
+import { explainDatabaseIssue } from '@/lib/database';
 import { SCENARIOS } from '@/lib/scenarios';
 import { scenarioBadgeClass } from '@/lib/utils';
 import { discoverUsers } from '@/lib/newnal';
@@ -22,28 +23,40 @@ async function getUserCount(): Promise<number> {
 
 export default async function HomePage() {
   const waveSpeedActive = Boolean(process.env.WAVESPEED_API_KEY?.trim());
-  const [userCount, allLogs, todaysLogs] = await Promise.all([
-    getUserCount(),
-    prisma.proposalLog.findMany({ orderBy: { sentAt: 'desc' }, take: 5 }),
-    prisma.proposalLog.count({
-      where: { sentAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
-    }),
-  ]);
+  const userCount = await getUserCount();
+  let databaseWarning: string | null = null;
+  let allLogs: Awaited<ReturnType<typeof prisma.proposalLog.findMany>> = [];
+  let todaysLogs = 0;
+  let totalSent = 0;
+  let totalAccepted = 0;
+  let counts: Array<{ scenarioId: string; _count: { _all: number } }> = [];
+  let acceptCounts: Array<{ scenarioId: string; _count: { _all: number } }> = [];
 
-  const totalSent = await prisma.proposalLog.count();
-  const totalAccepted = await prisma.proposalLog.count({ where: { accepted: true } });
+  try {
+    [allLogs, todaysLogs, totalSent, totalAccepted, counts, acceptCounts] = await Promise.all([
+      prisma.proposalLog.findMany({ orderBy: { sentAt: 'desc' }, take: 5 }),
+      prisma.proposalLog.count({
+        where: { sentAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+      }),
+      prisma.proposalLog.count(),
+      prisma.proposalLog.count({ where: { accepted: true } }),
+      prisma.proposalLog.groupBy({
+        by: ['scenarioId'],
+        _count: { _all: true },
+      }),
+      prisma.proposalLog.groupBy({
+        by: ['scenarioId'],
+        where: { accepted: true },
+        _count: { _all: true },
+      }),
+    ]);
+  } catch (error) {
+    databaseWarning = explainDatabaseIssue(error);
+    console.warn(`Dashboard database telemetry unavailable: ${databaseWarning}`);
+  }
+
   const acceptanceRate = totalSent === 0 ? 0 : Math.round((totalAccepted / totalSent) * 100);
 
-  // Acceptance per scenario
-  const counts = await prisma.proposalLog.groupBy({
-    by: ['scenarioId'],
-    _count: { _all: true },
-  });
-  const acceptCounts = await prisma.proposalLog.groupBy({
-    by: ['scenarioId'],
-    where: { accepted: true },
-    _count: { _all: true },
-  });
   const countById = Object.fromEntries(counts.map((c) => [c.scenarioId, c._count._all]));
   const acceptById = Object.fromEntries(acceptCounts.map((a) => [a.scenarioId, a._count._all]));
   const acceptanceRows = SCENARIOS
@@ -73,6 +86,11 @@ export default async function HomePage() {
         }
       />
       <div className="px-8 py-8 space-y-8">
+        {databaseWarning && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {databaseWarning}
+          </div>
+        )}
         <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Metric label="Users discovered" value={userCount.toString()} sub="via Newnal Plaza" />
           <Metric label="Proposals sent today" value={todaysLogs.toString()} sub="across all users" />

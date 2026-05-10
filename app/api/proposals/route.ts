@@ -5,17 +5,27 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const { prisma } = await import('@/lib/prisma');
-  const logs = await prisma.proposalLog.findMany({
-    orderBy: { sentAt: 'desc' },
-    take: 200,
-  });
-  return NextResponse.json({
-    logs: logs.map((l) => ({
-      ...l,
-      evidence: tryParseArray(l.evidence),
-    })),
-  });
+  try {
+    const { prisma } = await import('@/lib/prisma');
+    const logs = await prisma.proposalLog.findMany({
+      orderBy: { sentAt: 'desc' },
+      take: 200,
+    });
+    return NextResponse.json({
+      logs: logs.map((l) => ({
+        ...l,
+        evidence: tryParseArray(l.evidence),
+      })),
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        logs: [],
+        error: error instanceof Error ? error.message : String(error),
+      },
+      { status: 503 },
+    );
+  }
 }
 
 export async function PATCH(req: NextRequest) {
@@ -26,15 +36,22 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
   if (!body.id) return NextResponse.json({ error: 'id required' }, { status: 400 });
-  const { prisma } = await import('@/lib/prisma');
-  const updated = await prisma.proposalLog.update({
-    where: { id: body.id },
-    data: {
-      accepted: body.accepted ?? null,
-      acceptedAt: body.accepted ? new Date() : null,
-    },
-  });
-  return NextResponse.json({ log: updated });
+  try {
+    const { prisma } = await import('@/lib/prisma');
+    const updated = await prisma.proposalLog.update({
+      where: { id: body.id },
+      data: {
+        accepted: body.accepted ?? null,
+        acceptedAt: body.accepted ? new Date() : null,
+      },
+    });
+    return NextResponse.json({ log: updated });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : String(error) },
+      { status: 503 },
+    );
+  }
 }
 
 function tryParseArray(s: string | null | undefined): string[] {

@@ -3,15 +3,24 @@
 import { TopBar } from '@/components/layout/TopBar';
 import { ProposalsTable } from '@/components/proposals/ProposalsTable';
 import { LiveSentPanel } from '@/components/proposals/LiveSentPanel';
+import { explainDatabaseIssue } from '@/lib/database';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProposalsPage() {
-  const logs = await prisma.proposalLog.findMany({
-    orderBy: { sentAt: 'desc' },
-    take: 200,
-  });
+  let databaseWarning: string | null = null;
+  let logs: Awaited<ReturnType<typeof prisma.proposalLog.findMany>> = [];
+
+  try {
+    logs = await prisma.proposalLog.findMany({
+      orderBy: { sentAt: 'desc' },
+      take: 200,
+    });
+  } catch (error) {
+    databaseWarning = explainDatabaseIssue(error);
+    console.warn(`Proposal history unavailable: ${databaseWarning}`);
+  }
 
   const enriched = logs.map((l) => ({
     ...l,
@@ -27,6 +36,11 @@ export default async function ProposalsPage() {
         subtitle="Every Newnal-Circle The Gut Check has fired. Toggle acceptance to track downstream signal."
       />
       <div className="px-8 py-8 space-y-8">
+        {databaseWarning && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {databaseWarning}
+          </div>
+        )}
         <ProposalsTable logs={enriched} />
         <LiveSentPanel />
       </div>

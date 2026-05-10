@@ -15,6 +15,7 @@ import {
   sendSimpleCircle,
   sendTemplateCircle,
 } from '@/lib/newnal';
+import { explainDatabaseIssue } from '@/lib/database';
 import { prisma } from '@/lib/prisma';
 import type { ProposalPayload } from '@/lib/types';
 
@@ -91,21 +92,29 @@ export async function POST(req: NextRequest) {
     raw = JSON.stringify({ demo: true });
   }
 
-  const log = await prisma.proposalLog.create({
-    data: {
-      userId: body.userId,
-      userName: body.userName ?? body.userId,
-      scenarioId: body.scenarioId,
-      scenarioName: body.scenarioName,
-      scenarioType: body.scenarioType,
-      confidence: body.confidence ?? 0.5,
-      headline: body.headline,
-      body: body.body,
-      evidence: JSON.stringify(body.evidence ?? []),
-      newnalCircleId: circleId,
-      newnalResponse: raw,
-    },
-  });
+  let log = null;
+  let logWarning: string | undefined;
 
-  return NextResponse.json({ success, circleId, error, log });
+  try {
+    log = await prisma.proposalLog.create({
+      data: {
+        userId: body.userId,
+        userName: body.userName ?? body.userId,
+        scenarioId: body.scenarioId,
+        scenarioName: body.scenarioName,
+        scenarioType: body.scenarioType,
+        confidence: body.confidence ?? 0.5,
+        headline: body.headline,
+        body: body.body,
+        evidence: JSON.stringify(body.evidence ?? []),
+        newnalCircleId: circleId,
+        newnalResponse: raw,
+      },
+    });
+  } catch (e) {
+    logWarning = explainDatabaseIssue(e);
+    console.warn(`Proposal send succeeded but DB logging failed: ${logWarning}`);
+  }
+
+  return NextResponse.json({ success, circleId, error, log, logWarning });
 }

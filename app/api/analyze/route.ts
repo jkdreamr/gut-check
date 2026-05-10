@@ -11,6 +11,7 @@ import { generateProposal } from '@/lib/proposal-generator';
 import { ALL_SCENARIO_IDS } from '@/lib/scenarios';
 import { MOCK_USERS_BY_ID } from '@/lib/mock-users';
 import { buildAutonomyDecision } from '@/lib/autonomy';
+import { explainDatabaseIssue } from '@/lib/database';
 import { generateDynamicScenarios } from '@/lib/dynamic-scenarios';
 import type { RecentProposalSummary, ScenarioPerformanceSnapshot } from '@/lib/types';
 
@@ -68,7 +69,7 @@ async function loadProposalTelemetry(userId: string): Promise<{
       performanceByScenario,
     };
   } catch (error) {
-    console.warn('Falling back to empty proposal telemetry for /api/analyze:', error);
+    console.warn(`Falling back to empty proposal telemetry for /api/analyze: ${explainDatabaseIssue(error)}`);
     return {
       recentUserProposals: [],
       performanceByScenario: {},

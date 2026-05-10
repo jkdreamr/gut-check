@@ -1,4 +1,5 @@
 import { TopBar } from '@/components/layout/TopBar';
+import { explainDatabaseIssue } from '@/lib/database';
 import { prisma } from '@/lib/prisma';
 import { SCENARIOS, SCENARIO_META_BY_ID, isGeneratedScenarioId } from '@/lib/scenarios';
 import { deriveAdaptiveFloor } from '@/lib/autonomy';
@@ -21,28 +22,40 @@ type ScenarioTelemetry = {
 
 export default async function ScenariosPage() {
   const waveSpeedActive = Boolean(process.env.WAVESPEED_API_KEY?.trim());
-  const [counts, accepts, totalSent, totalAccepted, seenScenarios] = await Promise.all([
-    prisma.proposalLog.groupBy({
-      by: ['scenarioId'],
-      _count: { _all: true },
-    }),
-    prisma.proposalLog.groupBy({
-      by: ['scenarioId'],
-      where: { accepted: true },
-      _count: { _all: true },
-    }),
-    prisma.proposalLog.count(),
-    prisma.proposalLog.count({ where: { accepted: true } }),
-    prisma.proposalLog.findMany({
-      select: {
-        scenarioId: true,
-        scenarioName: true,
-        scenarioType: true,
-      },
-      distinct: ['scenarioId'],
-      orderBy: { sentAt: 'desc' },
-    }),
-  ]);
+  let databaseWarning: string | null = null;
+  let counts: Array<{ scenarioId: string; _count: { _all: number } }> = [];
+  let accepts: Array<{ scenarioId: string; _count: { _all: number } }> = [];
+  let totalSent = 0;
+  let totalAccepted = 0;
+  let seenScenarios: Array<{ scenarioId: string; scenarioName: string; scenarioType: string }> = [];
+
+  try {
+    [counts, accepts, totalSent, totalAccepted, seenScenarios] = await Promise.all([
+      prisma.proposalLog.groupBy({
+        by: ['scenarioId'],
+        _count: { _all: true },
+      }),
+      prisma.proposalLog.groupBy({
+        by: ['scenarioId'],
+        where: { accepted: true },
+        _count: { _all: true },
+      }),
+      prisma.proposalLog.count(),
+      prisma.proposalLog.count({ where: { accepted: true } }),
+      prisma.proposalLog.findMany({
+        select: {
+          scenarioId: true,
+          scenarioName: true,
+          scenarioType: true,
+        },
+        distinct: ['scenarioId'],
+        orderBy: { sentAt: 'desc' },
+      }),
+    ]);
+  } catch (error) {
+    databaseWarning = explainDatabaseIssue(error);
+    console.warn(`AI Brain telemetry unavailable: ${databaseWarning}`);
+  }
 
   const countById = Object.fromEntries(counts.map((row) => [row.scenarioId, row._count._all]));
   const acceptById = Object.fromEntries(accepts.map((row) => [row.scenarioId, row._count._all]));
@@ -91,6 +104,11 @@ export default async function ScenariosPage() {
         subtitle="Human thresholds are retired. The autonomous policy layer now decides which scenarios deserve interruption rights."
       />
       <div className="px-8 py-8 space-y-8">
+        {databaseWarning && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {databaseWarning}
+          </div>
+        )}
         <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Metric label="Operator involvement" value="0%" sub="model-owned gating + dispatch" />
           <Metric
