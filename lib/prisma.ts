@@ -26,12 +26,24 @@ function ensureFallbackDbFile(targetPath: string) {
   }
 }
 
+function looksLikeRelativeSqlite(url: string) {
+  return url.startsWith('file:./') || url.startsWith('file:../');
+}
+
 function resolveDatabaseUrl() {
-  if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim().length > 0) {
-    return process.env.DATABASE_URL;
+  const configuredUrl = process.env.DATABASE_URL?.trim();
+  const isProductionLike = Boolean(process.env.VERCEL || process.env.NODE_ENV === 'production');
+
+  if (configuredUrl && configuredUrl.length > 0) {
+    if (isProductionLike && looksLikeRelativeSqlite(configuredUrl)) {
+      const tmpDbPath = path.join(os.tmpdir(), 'gut-check.db');
+      ensureFallbackDbFile(tmpDbPath);
+      return `file:${tmpDbPath}`;
+    }
+    return configuredUrl;
   }
 
-  if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+  if (isProductionLike) {
     const tmpDbPath = path.join(os.tmpdir(), 'gut-check.db');
     ensureFallbackDbFile(tmpDbPath);
     return `file:${tmpDbPath}`;

@@ -10,35 +10,18 @@ import { runAllScenarios } from '@/lib/rule-engine';
 import { generateProposal } from '@/lib/proposal-generator';
 import { ALL_SCENARIO_IDS } from '@/lib/scenarios';
 import { MOCK_USERS_BY_ID } from '@/lib/mock-users';
-import { prisma } from '@/lib/prisma';
 import { buildAutonomyDecision } from '@/lib/autonomy';
+import type { RecentProposalSummary, ScenarioPerformanceSnapshot } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: NextRequest) {
-  let body: { userId?: string; name?: string };
+async function loadProposalTelemetry(userId: string): Promise<{
+  recentUserProposals: RecentProposalSummary[];
+  performanceByScenario: Record<string, ScenarioPerformanceSnapshot>;
+}> {
   try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-  }
-  const userId = body.userId;
-  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
-
-  try {
-    let profile;
-    if (userId.startsWith('demo:')) {
-      profile = MOCK_USERS_BY_ID[userId];
-      if (!profile) return NextResponse.json({ error: 'unknown demo user' }, { status: 404 });
-    } else {
-      const detail = await getPersonalAi(userId);
-      profile = adaptUserDetail(
-        { ai_did: userId, ai_name: body.name ?? 'Personal AI', match_score: 0 },
-        detail,
-      );
-    }
-
+    const { prisma } = await import('@/lib/prisma');
     const [recentUserLogs, counts, acceptCounts] = await Promise.all([
       prisma.proposalLog.findMany({
         where: { userId },
@@ -74,10 +57,7 @@ export async function POST(req: NextRequest) {
       }),
     );
 
-    const triggered = runAllScenarios(profile, ALL_SCENARIO_IDS).filter((r) => r.triggered === true);
-    const autonomy = await buildAutonomyDecision({
-      profile,
-      triggered,
+    return {
       recentUserProposals: recentUserLogs.map((log) => ({
         scenarioId: log.scenarioId,
         scenarioType: log.scenarioType as 'warning' | 'nudge',
@@ -85,6 +65,47 @@ export async function POST(req: NextRequest) {
         accepted: log.accepted,
       })),
       performanceByScenario,
+    };
+  } catch (error) {
+    console.warn('Falling back to empty proposal telemetry for /api/analyze:', error);
+    return {
+      recentUserProposals: [],
+      performanceByScenario: {},
+    };
+  }
+}
+
+export async function POST(req: NextRequest) {
+  let body: { userId?: string; name?: string };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+  const userId = body.userId;
+  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
+
+  try {
+    let profile;
+    if (userId.startsWith('demo:')) {
+      profile = MOCK_USERS_BY_ID[userId];
+      if (!profile) return NextResponse.json({ error: 'unknown demo user' }, { status: 404 });
+    } else {
+      const detail = await getPersonalAi(userId);
+      profile = adaptUserDetail(
+        { ai_did: userId, ai_name: body.name ?? 'Personal AI', match_score: 0 },
+        detail,
+      );
+    }
+
+    const telemetry = await loadProposalTelemetry(userId);
+
+    const triggered = runAllScenarios(profile, ALL_SCENARIO_IDS).filter((r) => r.triggered === true);
+    const autonomy = await buildAutonomyDecision({
+      profile,
+      triggered,
+      recentUserProposals: telemetry.recentUserProposals,
+      performanceByScenario: telemetry.performanceByScenario,
     });
 
     const topScenarioIds = autonomy.candidates.slice(0, 3).map((candidate) => candidate.scenarioId);
