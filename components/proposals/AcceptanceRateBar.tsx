@@ -1,4 +1,5 @@
 'use client';
+import { useEffect, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell,
 } from 'recharts';
@@ -17,6 +18,11 @@ export function AcceptanceRateBar({ data }: { data: Row[] }) {
     type: d.type,
     fired: d.fired,
   }));
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) {
+    return <div className="w-full" style={{ height: 280 }} aria-hidden />;
+  }
   return (
     <div className="w-full" style={{ height: 280 }}>
       <ResponsiveContainer width="100%" height="100%">

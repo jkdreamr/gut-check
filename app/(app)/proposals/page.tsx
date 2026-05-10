@@ -3,7 +3,7 @@
 import { TopBar } from '@/components/layout/TopBar';
 import { ProposalsTable } from '@/components/proposals/ProposalsTable';
 import { LiveSentPanel } from '@/components/proposals/LiveSentPanel';
-import { explainDatabaseIssue } from '@/lib/database';
+import { explainDatabaseIssue, hasValidPostgresDatabaseUrl } from '@/lib/database';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -18,8 +18,11 @@ export default async function ProposalsPage() {
       take: 200,
     });
   } catch (error) {
-    databaseWarning = explainDatabaseIssue(error);
-    console.warn(`Proposal history unavailable: ${databaseWarning}`);
+    const explanation = explainDatabaseIssue(error);
+    console.warn(`Proposal history unavailable: ${explanation}`);
+    if (hasValidPostgresDatabaseUrl()) {
+      databaseWarning = explanation;
+    }
   }
 
   const enriched = logs.map((l) => ({
