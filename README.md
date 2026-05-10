@@ -75,7 +75,7 @@ character/values radar values, location) come from the API verbatim.
 
 - Next.js 14 (App Router), TypeScript
 - Tailwind CSS + Recharts (radar + bar charts)
-- Prisma + SQLite (proposal log — zero external deps)
+- Prisma + hosted Postgres (proposal log + scenario telemetry)
 - Optional Anthropic Claude (`ANTHROPIC_API_KEY`) for richer proposal copy
   and policy-layer review; ships with deterministic fallbacks that require no key
 
@@ -84,7 +84,7 @@ character/values radar values, location) come from the API verbatim.
 ```bash
 npm install
 cp .env.example .env.local       # then fill in NEWNAL_API_KEY
-npx prisma db push               # creates prisma/dev.db
+npx prisma db push               # creates the schema in your hosted Postgres
 npm run dev                      # http://localhost:3000
 ```
 
@@ -93,10 +93,15 @@ npm run dev                      # http://localhost:3000
 ```env
 NEWNAL_API_BASE=https://agentplace.newnal.ai/api/service-agent
 NEWNAL_API_KEY=nsa_<your-key>
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://postgres:password@db.example.com:5432/gut_check?sslmode=require"
 # Optional — set to enable Claude-generated proposal copy:
 # ANTHROPIC_API_KEY=
 ```
+
+For Vercel, set the same `DATABASE_URL` in Project Settings to a hosted Postgres
+instance. The build now runs `prisma generate` automatically. If the database is
+new, run `npm run db:migrate` or `npm run db:push` once before first use so the
+`ProposalLog` and `ScenarioConfig` tables exist.
 
 ## Pages
 

@@ -1,11 +1,11 @@
 // app/api/proposals/route.ts — list proposal log entries with optional acceptance toggling.
 import { NextResponse, type NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const { prisma } = await import('@/lib/prisma');
   const logs = await prisma.proposalLog.findMany({
     orderBy: { sentAt: 'desc' },
     take: 200,
@@ -26,6 +26,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
   if (!body.id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+  const { prisma } = await import('@/lib/prisma');
   const updated = await prisma.proposalLog.update({
     where: { id: body.id },
     data: {
