@@ -1,4 +1,5 @@
 'use client';
+import { useEffect, useState } from 'react';
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, PolarRadiusAxis,
 } from 'recharts';
@@ -17,6 +18,11 @@ export function UserDataRadar({ data, variant = 'completeness', size, showAxis =
   const stroke = variant === 'completeness' ? '#7ee7ff' : '#9a84ff';
   const dotColor = variant === 'persona' ? stroke : undefined;
   const heightStyle = size ? { height: size, width: '100%' } : { height: 280, width: '100%' };
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) {
+    return <div style={heightStyle} aria-hidden />;
+  }
   return (
     <div style={heightStyle}>
       <ResponsiveContainer width="100%" height="100%">

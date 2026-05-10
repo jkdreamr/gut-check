@@ -1,5 +1,5 @@
 import { TopBar } from '@/components/layout/TopBar';
-import { explainDatabaseIssue } from '@/lib/database';
+import { explainDatabaseIssue, hasValidPostgresDatabaseUrl } from '@/lib/database';
 import { prisma } from '@/lib/prisma';
 import { SCENARIOS, SCENARIO_META_BY_ID, isGeneratedScenarioId } from '@/lib/scenarios';
 import { deriveAdaptiveFloor } from '@/lib/autonomy';
@@ -53,8 +53,11 @@ export default async function ScenariosPage() {
       }),
     ]);
   } catch (error) {
-    databaseWarning = explainDatabaseIssue(error);
-    console.warn(`Pattern telemetry unavailable: ${databaseWarning}`);
+    const explanation = explainDatabaseIssue(error);
+    console.warn(`Pattern telemetry unavailable: ${explanation}`);
+    if (hasValidPostgresDatabaseUrl()) {
+      databaseWarning = explanation;
+    }
   }
 
   const countById = Object.fromEntries(counts.map((row) => [row.scenarioId, row._count._all]));

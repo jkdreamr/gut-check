@@ -3,11 +3,20 @@ export function hasValidPostgresDatabaseUrl() {
   return url.startsWith('postgresql://') || url.startsWith('postgres://');
 }
 
+export function isDatabaseConfigured() {
+  return hasValidPostgresDatabaseUrl();
+}
+
 export function explainDatabaseIssue(error?: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? '');
+  const url = process.env.DATABASE_URL?.trim() ?? '';
+
+  if (!url) {
+    return 'Database telemetry is unavailable because DATABASE_URL is not set. Add a Postgres URL to enable proposal logging.';
+  }
 
   if (!hasValidPostgresDatabaseUrl()) {
-    return 'Database telemetry is unavailable because DATABASE_URL is still set to a local SQLite value. Replace it with a real Postgres URL.';
+    return 'Database telemetry is unavailable because DATABASE_URL is not a Postgres connection string. Replace it with a real Postgres URL.';
   }
 
   if (message.includes('Can\'t reach database server')) {

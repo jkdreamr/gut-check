@@ -4,7 +4,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { ProposalCard } from '@/components/proposals/ProposalCard';
 import { AcceptanceRateBar } from '@/components/proposals/AcceptanceRateBar';
 import { prisma } from '@/lib/prisma';
-import { explainDatabaseIssue } from '@/lib/database';
+import { explainDatabaseIssue, hasValidPostgresDatabaseUrl } from '@/lib/database';
 import { SCENARIOS } from '@/lib/scenarios';
 import { discoverUsers } from '@/lib/newnal';
 
@@ -48,8 +48,11 @@ export async function AppDashboard() {
       }),
     ]);
   } catch (error) {
-    databaseWarning = explainDatabaseIssue(error);
-    console.warn(`Dashboard database telemetry unavailable: ${databaseWarning}`);
+    const explanation = explainDatabaseIssue(error);
+    console.warn(`Dashboard database telemetry unavailable: ${explanation}`);
+    if (hasValidPostgresDatabaseUrl()) {
+      databaseWarning = explanation;
+    }
   }
 
   const acceptanceRate = totalSent === 0 ? 0 : Math.round((totalAccepted / totalSent) * 100);
