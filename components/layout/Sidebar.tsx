@@ -26,7 +26,12 @@ export function Sidebar() {
   return (
     <aside className="shrink-0 xl:sticky xl:top-0 xl:z-30 xl:h-screen xl:w-[290px]">
       <div className="flex h-full flex-col border-b border-white/[0.06] bg-[linear-gradient(180deg,rgba(7,17,31,0.92),rgba(9,20,37,0.88))] px-4 py-4 backdrop-blur-2xl xl:border-b-0 xl:border-r xl:px-5 xl:py-5">
-        <div className="panel-soft mb-4 p-4">
+        <Link
+          href="/"
+          prefetch
+          aria-label="Go to Gut Check landing page"
+          className="panel-soft mb-4 block p-4 transition-colors hover:border-cyan-300/[0.18] hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/40"
+        >
           <div className="flex items-center gap-3">
             <MorphMark size="sm" />
             <div>
@@ -34,10 +39,10 @@ export function Sidebar() {
               <p className="text-xs text-slate-400">Newnal decision guardian</p>
             </div>
           </div>
-          <p className="mt-4 text-sm leading-6 text-slate-300">
-            Calm on the surface, precise under the hood.
+          <p className="mt-4 text-xs font-medium uppercase tracking-[0.28em] text-cyan-200/90">
+            Stanford
           </p>
-        </div>
+        </Link>
 
         <div className="mb-3 px-3 text-[11px] uppercase tracking-[0.24em] text-slate-500">
           Navigation
