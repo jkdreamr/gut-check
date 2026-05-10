@@ -261,6 +261,47 @@ export interface ScenarioResultMissed {
 
 export type ScenarioResult = ScenarioResultTriggered | ScenarioResultMissed;
 
+export interface ScenarioPerformanceSnapshot {
+  fired: number;
+  accepted: number;
+  acceptanceRate: number | null;
+}
+
+export interface RecentProposalSummary {
+  scenarioId: string;
+  scenarioType: ScenarioType;
+  sentAt: string;
+  accepted: boolean | null;
+}
+
+export interface AutonomyCandidate {
+  scenarioId: string;
+  scenarioName: string;
+  scenarioType: ScenarioType;
+  posture: 'send_now' | 'watch' | 'hold';
+  confidence: number;
+  sendScore: number;
+  adaptiveFloor: number;
+  acceptancePrediction: number;
+  timingScore: number;
+  fatiguePenalty: number;
+  behaviorFit: number;
+  historicalAcceptance: number | null;
+  creativeDirection: string;
+  reasons: string[];
+}
+
+export interface AutonomyDecision {
+  policyModel: string;
+  operatorInvolvement: 'none';
+  recommendedAction: 'send_now' | 'hold';
+  primaryScenarioId?: string;
+  summaryHeadline: string;
+  summaryBody: string;
+  narrative: string[];
+  candidates: AutonomyCandidate[];
+}
+
 // ─── Proposal payload used by the API route ────────────────────────────────
 
 export interface ProposalPayload {
@@ -283,5 +324,7 @@ export interface AnalyzeResponse {
     scenario: ScenarioResultTriggered;
     headline: string;
     body: string;
+    source: 'template' | 'claude';
   }[];
+  autonomy: AutonomyDecision;
 }

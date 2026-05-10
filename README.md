@@ -8,12 +8,13 @@ A Newnal Service Agent for the Stanford AI OS Hackathon (May 9–10, 2026).
 
 This Service Agent runs on top of the [Newnal Agent Place](https://agentplace.newnal.ai/)
 public API. It discovers Personal AIs in the Newnal Plaza, runs their categorized
-profile through an **11-scenario rule engine**, generates a proposal card, and
-fires it as a **Newnal-Circle** to the user's phone via the official UI Template.
+profile through an **11-scenario rule engine**, lets an **autonomous policy layer**
+decide whether interruption is justified, generates proposal copy, and fires it as
+a **Newnal-Circle** to the user's phone.
 
 ## What it does
 
-The Gut Check's rule engine ships **6 warnings + 5 nudges**:
+The Gut Check ships **6 warnings + 5 nudges**:
 
 | ID  | Name                       | Type    | Trigger (high level) |
 |-----|----------------------------|---------|----------------------|
@@ -45,6 +46,20 @@ The Gut Check sends Newnal-Circles by default through the
 `Simple Text0-headline` and `Simple Text0-body`) so they render as the same
 notice card the platform itself uses.
 
+## Autonomous policy layer
+
+The rule engine is no longer operator-tuned. Each triggered scenario now flows
+through an autonomous policy layer that:
+
+- computes a **model-owned adaptive floor** per scenario
+- blends evidence strength, timing, fatigue, and historical acceptance
+- decides whether to **send now** or **hold**
+- selects the winning scenario automatically
+
+If `ANTHROPIC_API_KEY` is present, Claude reviews the heuristic decision and can
+override the final dispatch posture. Without it, the embedded autonomy engine
+still runs deterministically.
+
 ## Synthesis adapter
 
 Some signals the rule engine wants — gym cancellation history, subscription
@@ -60,9 +75,9 @@ character/values radar values, location) come from the API verbatim.
 
 - Next.js 14 (App Router), TypeScript
 - Tailwind CSS + Recharts (radar + bar charts)
-- Prisma + SQLite (proposal log + scenario config — zero external deps)
-- Optional Anthropic Claude (`ANTHROPIC_API_KEY`) for richer proposal copy;
-  ships with a deterministic template generator that requires no key
+- Prisma + SQLite (proposal log — zero external deps)
+- Optional Anthropic Claude (`ANTHROPIC_API_KEY`) for richer proposal copy
+  and policy-layer review; ships with deterministic fallbacks that require no key
 
 ## Setup
 
@@ -87,12 +102,12 @@ DATABASE_URL="file:./dev.db"
 
 | Route                | What's there |
 |----------------------|--------------|
-| `/`                  | Dashboard: 4 metric cards + acceptance bar chart + recent proposals + most-recent phone preview |
+| `/`                  | Dashboard: autonomous doctrine + acceptance chart + recent dispatches + most-recent phone preview |
 | `/users`             | Plaza search via natural-language query, results grid with mini-radar per user |
-| `/users/[did]`       | Detail: credibility score, profile snapshot pills, 2 radar charts, 4 category cards, **Run Gut Check** panel + send-proposal flow |
+| `/users/[did]`       | Detail: credibility score, profile snapshot pills, 2 radar charts, 4 category cards, **AI Decision Layer** autopilot panel |
 | `/proposals`         | Local history table + "Live from Newnal" panel reading `/circle/sent` |
-| `/scenarios`         | All 11 scenarios with toggle + threshold slider + fire/acceptance counters |
-| `/demo`              | Full-screen split-view live demo with 3 mock users + animated phone mockup |
+| `/scenarios`         | `AI Brain`: read-only governance board showing adaptive floors and autonomous posture per scenario |
+| `/demo`              | Full-screen autonomous live demo with 3 mock users + AI-owned send/hold decisions |
 
 ## API routes
 
@@ -100,10 +115,10 @@ DATABASE_URL="file:./dev.db"
 |-------------------------------------|-------|
 | `GET  /api/users?q=<NL>`            | `/personal-ai/search` (returns adapted user summaries) |
 | `GET  /api/users/[did]`             | `/personal-ai/{did}` (returns adapted profile) |
-| `POST /api/analyze`                 | runs the 11 scenarios + generates top-3 proposal copy |
+| `POST /api/analyze`                 | runs the 11 scenarios + autonomous policy layer + top-3 proposal copy |
 | `POST /api/propose`                 | sends via `/circle/template` (or `/circle/simple`) and logs |
 | `GET  /api/proposals` / `PATCH`     | local history + acceptance toggle |
-| `GET  /api/scenarios` / `PATCH`     | scenario config |
+| `GET  /api/scenarios`               | read-only AI governance telemetry |
 | `GET  /api/circle/sent`             | proxies `/circle/sent` for the live panel |
 | `POST /api/drive/upload`            | proxies `/drive/upload` |
 

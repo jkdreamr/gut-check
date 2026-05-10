@@ -21,20 +21,17 @@ async function getUserCount(): Promise<number> {
 }
 
 export default async function HomePage() {
-  const [userCount, allLogs, todaysLogs, configs] = await Promise.all([
+  const [userCount, allLogs, todaysLogs] = await Promise.all([
     getUserCount(),
     prisma.proposalLog.findMany({ orderBy: { sentAt: 'desc' }, take: 5 }),
     prisma.proposalLog.count({
       where: { sentAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
     }),
-    prisma.scenarioConfig.findMany(),
   ]);
 
   const totalSent = await prisma.proposalLog.count();
   const totalAccepted = await prisma.proposalLog.count({ where: { accepted: true } });
   const acceptanceRate = totalSent === 0 ? 0 : Math.round((totalAccepted / totalSent) * 100);
-
-  const enabledCount = configs.filter((c) => c.enabled).length || SCENARIOS.length;
 
   // Acceptance per scenario
   const counts = await prisma.proposalLog.groupBy({
@@ -62,14 +59,28 @@ export default async function HomePage() {
     <main>
       <TopBar
         title="Dashboard"
-        subtitle="The Gut Check fires personalized, data-driven proposals at the moment of decision."
+        subtitle="An autonomous decision-moment agent that decides when silence is smarter than sending."
         right={
-          <Link
-            href="/users"
-            className="bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium px-4 py-2 rounded-lg"
-          >
-            Discover users
-          </Link>
+          <>
+            <Link
+              href="/database"
+              className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg"
+            >
+              Open Atlas
+            </Link>
+            <Link
+              href="/phone"
+              className="bg-slate-950 hover:bg-slate-900 text-cyan-300 text-sm font-medium px-4 py-2 rounded-lg"
+            >
+              Phone OS
+            </Link>
+            <Link
+              href="/users"
+              className="bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium px-4 py-2 rounded-lg"
+            >
+              Discover users
+            </Link>
+          </>
         }
       />
       <div className="px-8 py-8 space-y-8">
@@ -77,7 +88,15 @@ export default async function HomePage() {
           <Metric label="Users discovered" value={userCount.toString()} sub="via Newnal Plaza" />
           <Metric label="Proposals sent today" value={todaysLogs.toString()} sub="across all users" />
           <Metric label="Acceptance rate" value={`${acceptanceRate}%`} sub={`${totalAccepted} of ${totalSent}`} />
-          <Metric label="Active scenarios" value={`${enabledCount}/${SCENARIOS.length}`} sub="rules online" />
+          <Metric label="AI ownership" value="100%" sub={`${SCENARIOS.length} scenarios model-governed`} />
+        </section>
+
+        <section className="rounded-[1.5rem] border border-gray-200 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 text-white p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Doctrine title="Adaptive Floors" body="Each scenario now has a model-owned send floor that rises or falls with acceptance history." />
+            <Doctrine title="Autonomous Holds" body="The Gut Check is allowed to do nothing when the timing signal is weak or the user is saturated." />
+            <Doctrine title="Operator-Free Dispatch" body="Humans no longer pick the scenario or threshold. The AI decides whether to fire and what should win." />
+          </div>
         </section>
 
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -101,7 +120,7 @@ export default async function HomePage() {
             <h2 className="font-semibold text-gray-900 mb-4">Recent proposals</h2>
             {allLogs.length === 0 ? (
               <div className="text-sm text-gray-500 py-8 text-center">
-                Nothing yet. Try the demo or analyze a real user.
+                Nothing yet. Try the live demo or let autopilot inspect a real user.
               </div>
             ) : (
               <ul className="space-y-3">
@@ -128,7 +147,7 @@ export default async function HomePage() {
 
         {allLogs[0] && (
           <section className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="font-semibold text-gray-900 mb-4">Most recent on the phone</h2>
+            <h2 className="font-semibold text-gray-900 mb-4">Most recent autonomous dispatch</h2>
             <div className="flex items-start gap-8">
               <ProposalCard
                 isLive
@@ -161,6 +180,15 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
       <p className="text-[11px] uppercase tracking-wider text-gray-400">{label}</p>
       <p className="text-3xl font-semibold text-gray-900 mt-2 tabular-nums">{value}</p>
       {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
+    </div>
+  );
+}
+
+function Doctrine({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <p className="font-semibold text-white">{title}</p>
+      <p className="text-sm text-slate-300 mt-2">{body}</p>
     </div>
   );
 }

@@ -2,16 +2,18 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Home, Users, Bell, SlidersHorizontal, Play, Sparkles,
+  Home, Users, Bell, SlidersHorizontal, Play, Sparkles, Database, Smartphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV = [
   { href: '/', label: 'Dashboard', icon: Home },
   { href: '/users', label: 'Users', icon: Users },
+  { href: '/database', label: 'Atlas', icon: Database },
+  { href: '/phone', label: 'Phone OS', icon: Smartphone },
   { href: '/proposals', label: 'Proposals', icon: Bell },
-  { href: '/scenarios', label: 'Scenarios', icon: SlidersHorizontal },
-  { href: '/demo', label: 'Demo Mode', icon: Play },
+  { href: '/scenarios', label: 'AI Brain', icon: SlidersHorizontal },
+  { href: '/demo', label: 'Live Demo', icon: Play },
 ];
 
 export function Sidebar() {

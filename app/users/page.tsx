@@ -1,5 +1,6 @@
 // app/users/page.tsx — Personal AI Universe browser.
 
+import Link from 'next/link';
 import { TopBar } from '@/components/layout/TopBar';
 import { UserCard } from '@/components/users/UserCard';
 import { UserSearchBar } from '@/components/users/UserSearchBar';
@@ -28,7 +29,15 @@ export default async function UsersPage({ searchParams }: SearchProps) {
     <main>
       <TopBar
         title="Personal AI Universe"
-        subtitle="Search the live Newnal Plaza by natural language. Click a user to inspect their profile and run the rule engine."
+        subtitle="Search the live Newnal Plaza by natural language. Jump into analyst view or see how the agent would feel from the phone itself."
+        right={(
+          <Link
+            href="/database"
+            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Open Atlas
+          </Link>
+        )}
       />
       <div className="px-8 py-8 space-y-6">
         <UserSearchBar initial={q} />
