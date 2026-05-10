@@ -106,3 +106,11 @@ export const ALL_SCENARIO_IDS = SCENARIOS.map((s) => s.id);
 export const SCENARIO_TYPE_BY_ID: Record<string, ScenarioType> = Object.fromEntries(
   SCENARIOS.map((s) => [s.id, s.type]),
 );
+
+export const SCENARIO_META_BY_ID = Object.fromEntries(
+  SCENARIOS.map((scenario) => [scenario.id, scenario]),
+) as Record<string, ScenarioMeta>;
+
+export function isGeneratedScenarioId(id: string) {
+  return id.startsWith('WS_');
+}

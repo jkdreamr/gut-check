@@ -49,13 +49,7 @@ export function UserCard({ user }: Props) {
           href={`/users/${encodeURIComponent(user.id)}`}
           className="rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white hover:bg-black"
         >
-          Analyst View
-        </Link>
-        <Link
-          href={`/phone?did=${encodeURIComponent(user.id)}`}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
-        >
-          Phone OS
+          Open profile
         </Link>
       </div>
     </div>

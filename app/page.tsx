@@ -21,6 +21,7 @@ async function getUserCount(): Promise<number> {
 }
 
 export default async function HomePage() {
+  const waveSpeedActive = Boolean(process.env.WAVESPEED_API_KEY?.trim());
   const [userCount, allLogs, todaysLogs] = await Promise.all([
     getUserCount(),
     prisma.proposalLog.findMany({ orderBy: { sentAt: 'desc' }, take: 5 }),
@@ -63,18 +64,6 @@ export default async function HomePage() {
         right={
           <>
             <Link
-              href="/database"
-              className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg"
-            >
-              Open Atlas
-            </Link>
-            <Link
-              href="/phone"
-              className="bg-slate-950 hover:bg-slate-900 text-cyan-300 text-sm font-medium px-4 py-2 rounded-lg"
-            >
-              Phone OS
-            </Link>
-            <Link
               href="/users"
               className="bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium px-4 py-2 rounded-lg"
             >
@@ -88,14 +77,22 @@ export default async function HomePage() {
           <Metric label="Users discovered" value={userCount.toString()} sub="via Newnal Plaza" />
           <Metric label="Proposals sent today" value={todaysLogs.toString()} sub="across all users" />
           <Metric label="Acceptance rate" value={`${acceptanceRate}%`} sub={`${totalAccepted} of ${totalSent}`} />
-          <Metric label="AI ownership" value="100%" sub={`${SCENARIOS.length} scenarios model-governed`} />
+          <Metric
+            label="AI ownership"
+            value="100%"
+            sub={
+              waveSpeedActive
+                ? `${SCENARIOS.length} core scenarios + WaveSpeed synthesis`
+                : `${SCENARIOS.length} core scenarios model-governed`
+            }
+          />
         </section>
 
         <section className="rounded-[1.5rem] border border-gray-200 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 text-white p-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Doctrine title="Adaptive Floors" body="Each scenario now has a model-owned send floor that rises or falls with acceptance history." />
             <Doctrine title="Autonomous Holds" body="The Gut Check is allowed to do nothing when the timing signal is weak or the user is saturated." />
-            <Doctrine title="Operator-Free Dispatch" body="Humans no longer pick the scenario or threshold. The AI decides whether to fire and what should win." />
+            <Doctrine title="Live Scenario Synthesis" body={waveSpeedActive ? 'WaveSpeed can mint additional interventions beyond the fixed eleven when the profile reveals a better angle.' : 'Add a WaveSpeed key to let the agent synthesize extra interventions beyond the fixed eleven.'} />
           </div>
         </section>
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ProposalCard } from '@/components/proposals/ProposalCard';
+import { isGeneratedScenarioId } from '@/lib/scenarios';
 import { scenarioBadgeClass } from '@/lib/utils';
 import type { AnalyzeResponse } from '@/lib/types';
 
@@ -111,7 +112,7 @@ export function AnalyzePanel({ userId, userName }: Props) {
           </div>
           <h2 className="text-xl font-semibold text-white">AI Decision Layer</h2>
           <p className="text-sm text-slate-300 mt-1 max-w-2xl">
-            The model now owns scenario gating, confidence floors, and send timing. Humans no longer tune thresholds here.
+            The model now owns scenario gating, confidence floors, send timing, and optionally synthesizes additional scenarios beyond the fixed core set.
           </p>
         </div>
         <button
@@ -191,6 +192,11 @@ export function AnalyzePanel({ userId, userName }: Props) {
                       {isPrimary && (
                         <span className="inline-flex items-center rounded-full border border-cyan-300/40 bg-cyan-300/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-cyan-200">
                           Primary
+                        </span>
+                      )}
+                      {isGeneratedScenarioId(entry.scenario.scenarioId) && (
+                        <span className="inline-flex items-center rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-amber-100">
+                          Generated
                         </span>
                       )}
                     </div>

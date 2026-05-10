@@ -11,6 +11,7 @@ import { generateProposal } from '@/lib/proposal-generator';
 import { ALL_SCENARIO_IDS } from '@/lib/scenarios';
 import { MOCK_USERS_BY_ID } from '@/lib/mock-users';
 import { buildAutonomyDecision } from '@/lib/autonomy';
+import { generateDynamicScenarios } from '@/lib/dynamic-scenarios';
 import type { RecentProposalSummary, ScenarioPerformanceSnapshot } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -100,7 +101,13 @@ export async function POST(req: NextRequest) {
 
     const telemetry = await loadProposalTelemetry(userId);
 
-    const triggered = runAllScenarios(profile, ALL_SCENARIO_IDS).filter((r) => r.triggered === true);
+    const coreTriggered = runAllScenarios(profile, ALL_SCENARIO_IDS).filter((r) => r.triggered === true);
+    const dynamicTriggered = await generateDynamicScenarios({
+      profile,
+      triggered: coreTriggered,
+      recentUserProposals: telemetry.recentUserProposals,
+    });
+    const triggered = [...coreTriggered, ...dynamicTriggered];
     const autonomy = await buildAutonomyDecision({
       profile,
       triggered,

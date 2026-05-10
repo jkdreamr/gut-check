@@ -11,11 +11,12 @@ import type {
   NewnalUserProfile,
   ScenarioResultTriggered,
 } from './types';
+import { hasWaveSpeed, recommendedWaveSpeedModel, waveSpeedJson } from './wavespeed';
 
 export interface GeneratedProposal {
   headline: string;
   body: string;
-  source: 'template' | 'claude';
+  source: 'template' | 'claude' | 'wavespeed';
 }
 
 // ─── Template generator (default, no key required) ────────────────────────
@@ -197,10 +198,53 @@ Return ONLY valid JSON: {"headline": "...", "body": "..."}`;
   };
 }
 
+async function waveSpeedGenerate(
+  scenario: ScenarioResultTriggered,
+  user: NewnalUserProfile,
+): Promise<GeneratedProposal> {
+  const parsed = await waveSpeedJson<{ headline?: string; body?: string }>({
+    system: 'You write short, high-signal intervention cards and return only valid JSON.',
+    model: recommendedWaveSpeedModel(scenario.scenarioType),
+    temperature: 0.55,
+    maxTokens: 500,
+    prompt: `Write a micro-notification for the Newnal phone.
+Scenario: ${scenario.scenarioName} (${scenario.scenarioType})
+Evidence: ${scenario.evidencePoints.join(' | ')}
+User: ${user.displayName}, age ${user.profileSnapshot.age}, location ${user.profileSnapshot.location}, persona ${user.profileSnapshot.persona}, goal ${user.profileSnapshot.goal}
+Context: ${JSON.stringify(scenario.proposalContext)}
+
+Write a proposal card with:
+- headline: one punchy sentence, max 8 words
+- body: max 2 short sentences
+
+Rules:
+- Never sound like an ad
+- Sound personal and data-backed
+- Warning scenarios: honest, calm, protective
+- Nudge scenarios: specific, optimistic, not pushy
+- No exclamation marks
+
+Return only JSON: {"headline":"...","body":"..."}`,
+  });
+
+  return {
+    headline: parsed.headline?.trim() || scenario.scenarioName,
+    body: parsed.body?.trim() || scenario.evidencePoints.join(' '),
+    source: 'wavespeed',
+  };
+}
+
 export async function generateProposal(
   scenario: ScenarioResultTriggered,
   user: NewnalUserProfile,
 ): Promise<GeneratedProposal> {
+  if (hasWaveSpeed()) {
+    try {
+      return await waveSpeedGenerate(scenario, user);
+    } catch (e) {
+      console.warn('WaveSpeed proposal generation failed, falling back:', e);
+    }
+  }
   if (process.env.ANTHROPIC_API_KEY) {
     try {
       return await claudeGenerate(scenario, user);

@@ -324,7 +324,7 @@ export interface AnalyzeResponse {
     scenario: ScenarioResultTriggered;
     headline: string;
     body: string;
-    source: 'template' | 'claude';
+    source: 'template' | 'claude' | 'wavespeed';
   }[];
   autonomy: AutonomyDecision;
 }

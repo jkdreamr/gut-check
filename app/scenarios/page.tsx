@@ -1,6 +1,6 @@
 import { TopBar } from '@/components/layout/TopBar';
 import { prisma } from '@/lib/prisma';
-import { SCENARIOS } from '@/lib/scenarios';
+import { SCENARIOS, SCENARIO_META_BY_ID, isGeneratedScenarioId } from '@/lib/scenarios';
 import { deriveAdaptiveFloor } from '@/lib/autonomy';
 import { scenarioBadgeClass } from '@/lib/utils';
 
@@ -20,7 +20,8 @@ type ScenarioTelemetry = {
 };
 
 export default async function ScenariosPage() {
-  const [counts, accepts, totalSent, totalAccepted] = await Promise.all([
+  const waveSpeedActive = Boolean(process.env.WAVESPEED_API_KEY?.trim());
+  const [counts, accepts, totalSent, totalAccepted, seenScenarios] = await Promise.all([
     prisma.proposalLog.groupBy({
       by: ['scenarioId'],
       _count: { _all: true },
@@ -32,11 +33,30 @@ export default async function ScenariosPage() {
     }),
     prisma.proposalLog.count(),
     prisma.proposalLog.count({ where: { accepted: true } }),
+    prisma.proposalLog.findMany({
+      select: {
+        scenarioId: true,
+        scenarioName: true,
+        scenarioType: true,
+      },
+      distinct: ['scenarioId'],
+      orderBy: { sentAt: 'desc' },
+    }),
   ]);
 
   const countById = Object.fromEntries(counts.map((row) => [row.scenarioId, row._count._all]));
   const acceptById = Object.fromEntries(accepts.map((row) => [row.scenarioId, row._count._all]));
-  const telemetry = SCENARIOS.map((scenario) => {
+  const generatedScenarios = seenScenarios
+    .filter((scenario) => !SCENARIO_META_BY_ID[scenario.scenarioId] && isGeneratedScenarioId(scenario.scenarioId))
+    .map((scenario) => ({
+      id: scenario.scenarioId,
+      name: scenario.scenarioName,
+      type: scenario.scenarioType as 'warning' | 'nudge',
+      shortDescription: 'WaveSpeed-generated live scenario',
+      longDescription: 'Synthesized from the user profile and prior outcomes at runtime by the WaveSpeed model layer.',
+    }));
+
+  const telemetry = [...SCENARIOS, ...generatedScenarios].map((scenario) => {
     const fired = countById[scenario.id] ?? 0;
     const accepted = acceptById[scenario.id] ?? 0;
     const acceptanceRate = fired > 0 ? accepted / fired : null;
@@ -73,9 +93,13 @@ export default async function ScenariosPage() {
       <div className="px-8 py-8 space-y-8">
         <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Metric label="Operator involvement" value="0%" sub="model-owned gating + dispatch" />
-          <Metric label="Adaptive floors" value={`${telemetry.length}`} sub="all scenarios self-governed" />
+          <Metric
+            label="Adaptive floors"
+            value={`${telemetry.length}`}
+            sub={waveSpeedActive ? 'core + generated scenarios self-governed' : 'all scenarios self-governed'}
+          />
           <Metric label="Global acceptance" value={`${globalAcceptance}%`} sub={`${totalAccepted} accepted of ${totalSent}`} />
-          <Metric label="Learning loop" value={totalSent === 0 ? 'Cold start' : 'Online'} sub="acceptance data feeding posture" />
+          <Metric label="Learning loop" value={totalSent === 0 ? 'Cold start' : 'Online'} sub={waveSpeedActive ? 'acceptance data + live synthesis' : 'acceptance data feeding posture'} />
         </section>
 
         <section className="rounded-[1.5rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white p-6">
@@ -91,7 +115,7 @@ export default async function ScenariosPage() {
             />
             <DoctrineCard
               title="Outcomes reshape posture"
-              body="Historical acceptance rates lower or raise the send floor automatically, so each scenario develops a live precision profile."
+              body={waveSpeedActive ? 'Historical acceptance rates shape both the core rules and any WaveSpeed-generated scenario that proves worth repeating.' : 'Historical acceptance rates lower or raise the send floor automatically, so each scenario develops a live precision profile.'}
             />
           </div>
         </section>

@@ -7,6 +7,7 @@ import type {
   ScenarioResultTriggered,
   ScenarioType,
 } from './types';
+import { hasWaveSpeed, waveSpeedJson } from './wavespeed';
 
 interface BuildAutonomyInput {
   profile: NewnalUserProfile;
@@ -267,6 +268,76 @@ function buildHeuristicDecision(
   };
 }
 
+async function reviewWithWaveSpeed(
+  profile: NewnalUserProfile,
+  heuristic: AutonomyDecision,
+): Promise<AutonomyDecision | null> {
+  if (!hasWaveSpeed() || heuristic.candidates.length === 0) {
+    return null;
+  }
+
+  try {
+    const parsed = await waveSpeedJson<{
+      recommendedAction?: 'send_now' | 'hold';
+      primaryScenarioId?: string;
+      summaryHeadline?: string;
+      summaryBody?: string;
+      narrative?: string[];
+    }>({
+      system: 'You are the autonomous policy layer for a decision-moment consumer agent. Return only valid JSON.',
+      temperature: 0.2,
+      maxTokens: 700,
+      prompt: `User:
+- name: ${profile.displayName}
+- age: ${profile.profileSnapshot.age}
+- location: ${profile.profileSnapshot.location}
+- persona: ${profile.profileSnapshot.persona}
+- goal: ${profile.profileSnapshot.goal}
+
+Heuristic recommendation:
+${JSON.stringify(heuristic, null, 2)}
+
+Task:
+Choose whether the agent should SEND_NOW or HOLD.
+If sending, select exactly one primaryScenarioId from the candidate list.
+Be conservative about interrupting the user. Silence is better than a weak nudge.
+
+Return only valid JSON:
+{
+  "recommendedAction": "send_now" | "hold",
+  "primaryScenarioId": "optional scenario id if sending",
+  "summaryHeadline": "short sentence",
+  "summaryBody": "short explanation",
+  "narrative": ["bullet 1", "bullet 2", "bullet 3"]
+}`,
+    });
+
+    const primaryCandidate = heuristic.candidates.find(
+      (candidate) => candidate.scenarioId === parsed.primaryScenarioId,
+    );
+
+    return {
+      ...heuristic,
+      policyModel: process.env.WAVESPEED_MODEL?.trim() || 'wavespeed/bytedance-seed-1.6-flash',
+      recommendedAction:
+        parsed.recommendedAction === 'send_now' && primaryCandidate ? 'send_now' : 'hold',
+      primaryScenarioId:
+        parsed.recommendedAction === 'send_now' && primaryCandidate
+          ? parsed.primaryScenarioId
+          : undefined,
+      summaryHeadline: parsed.summaryHeadline || heuristic.summaryHeadline,
+      summaryBody: parsed.summaryBody || heuristic.summaryBody,
+      narrative:
+        parsed.narrative && parsed.narrative.length > 0
+          ? parsed.narrative.slice(0, 3)
+          : heuristic.narrative,
+    };
+  } catch (error) {
+    console.warn('WaveSpeed autonomy review failed, falling back to heuristic policy:', error);
+    return null;
+  }
+}
+
 async function reviewWithClaude(
   profile: NewnalUserProfile,
   heuristic: AutonomyDecision,
@@ -351,6 +422,8 @@ export async function buildAutonomyDecision(
   input: BuildAutonomyInput,
 ): Promise<AutonomyDecision> {
   const heuristic = buildHeuristicDecision(input);
+  const waveSpeedReview = await reviewWithWaveSpeed(input.profile, heuristic);
+  if (waveSpeedReview) return waveSpeedReview;
   const reviewed = await reviewWithClaude(input.profile, heuristic);
   return reviewed ?? heuristic;
 }

@@ -29,13 +29,13 @@ export default async function UsersPage({ searchParams }: SearchProps) {
     <main>
       <TopBar
         title="Personal AI Universe"
-        subtitle="Search the live Newnal Plaza by natural language. Jump into analyst view or see how the agent would feel from the phone itself."
+        subtitle="Search the live Newnal Plaza by natural language and open a user to let autopilot inspect them."
         right={(
           <Link
-            href="/database"
+            href="/demo"
             className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
-            Open Atlas
+            Open demo
           </Link>
         )}
       />

@@ -3,8 +3,9 @@
 A Newnal Service Agent for the Stanford AI OS Hackathon (May 9–10, 2026).
 
 > Sends personalized, data-driven proposals to users at the moment of decision —
-> warning them against purchases they've regretted before, or nudging them toward
-> opportunities their data already says they want.
+> warning them against purchases they've regretted before, nudging them toward
+> opportunities their data already says they want, and optionally synthesizing
+> new intervention angles beyond the fixed core scenarios.
 
 This Service Agent runs on top of the [Newnal Agent Place](https://agentplace.newnal.ai/)
 public API. It discovers Personal AIs in the Newnal Plaza, runs their categorized
@@ -60,6 +61,12 @@ If `ANTHROPIC_API_KEY` is present, Claude reviews the heuristic decision and can
 override the final dispatch posture. Without it, the embedded autonomy engine
 still runs deterministically.
 
+If `WAVESPEED_API_KEY` is present, the app can also:
+
+- synthesize additional scenario candidates beyond the fixed 11
+- review send/hold posture through WaveSpeed's OpenAI-compatible LLM endpoint
+- generate proposal copy through WaveSpeed instead of the template path
+
 ## Synthesis adapter
 
 Some signals the rule engine wants — gym cancellation history, subscription
@@ -76,6 +83,8 @@ character/values radar values, location) come from the API verbatim.
 - Next.js 14 (App Router), TypeScript
 - Tailwind CSS + Recharts (radar + bar charts)
 - Prisma + hosted Postgres (proposal log + scenario telemetry)
+- Optional WaveSpeed LLM (`WAVESPEED_API_KEY`) for dynamic scenario synthesis,
+  proposal copy, and policy review
 - Optional Anthropic Claude (`ANTHROPIC_API_KEY`) for richer proposal copy
   and policy-layer review; ships with deterministic fallbacks that require no key
 
@@ -94,6 +103,9 @@ npm run dev                      # http://localhost:3000
 NEWNAL_API_BASE=https://agentplace.newnal.ai/api/service-agent
 NEWNAL_API_KEY=nsa_<your-key>
 DATABASE_URL="postgresql://postgres:password@db.example.com:5432/gut_check?sslmode=require"
+WAVESPEED_API_KEY=
+WAVESPEED_MODEL=bytedance-seed/seed-1.6-flash
+WAVESPEED_BASE_URL=https://llm.wavespeed.ai/v1
 # Optional — set to enable Claude-generated proposal copy:
 # ANTHROPIC_API_KEY=
 ```
@@ -103,15 +115,22 @@ instance. The build now runs `prisma generate` automatically. If the database is
 new, run `npm run db:migrate` or `npm run db:push` once before first use so the
 `ProposalLog` and `ScenarioConfig` tables exist.
 
+WaveSpeed notes:
+
+- The LLM endpoint is `https://llm.wavespeed.ai/v1`
+- Model calls use the OpenAI Chat Completions format
+- WaveSpeed's docs say API keys require an activated/top-upped account before
+  they work
+
 ## Pages
 
 | Route                | What's there |
 |----------------------|--------------|
-| `/`                  | Dashboard: autonomous doctrine + acceptance chart + recent dispatches + most-recent phone preview |
+| `/`                  | Dashboard: autonomous doctrine + acceptance chart + recent dispatches |
 | `/users`             | Plaza search via natural-language query, results grid with mini-radar per user |
 | `/users/[did]`       | Detail: credibility score, profile snapshot pills, 2 radar charts, 4 category cards, **AI Decision Layer** autopilot panel |
 | `/proposals`         | Local history table + "Live from Newnal" panel reading `/circle/sent` |
-| `/scenarios`         | `AI Brain`: read-only governance board showing adaptive floors and autonomous posture per scenario |
+| `/scenarios`         | `AI Brain`: read-only governance board showing adaptive floors, autonomous posture, and any live WaveSpeed-generated scenarios |
 | `/demo`              | Full-screen autonomous live demo with 3 mock users + AI-owned send/hold decisions |
 
 ## API routes

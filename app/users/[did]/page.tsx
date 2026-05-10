@@ -43,20 +43,12 @@ export default async function UserDetailPage({ params }: Props) {
         title={profile.displayName}
         subtitle={`${profile.profileSnapshot.age} · ${profile.profileSnapshot.location} · ${shortDid(profile.id)}`}
         right={
-          <>
-            <Link
-              href={`/phone?did=${encodeURIComponent(profile.id)}`}
-              className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-medium text-cyan-300 hover:bg-slate-900"
-            >
-              Phone OS
-            </Link>
-            <Link
-              href="/users"
-              className="text-sm text-gray-500 hover:text-gray-900"
-            >
-              ← Back
-            </Link>
-          </>
+          <Link
+            href="/users"
+            className="text-sm text-gray-500 hover:text-gray-900"
+          >
+            ← Back
+          </Link>
         }
       />
       <div className="px-8 py-8 space-y-6">
