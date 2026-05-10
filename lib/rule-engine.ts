@@ -72,18 +72,18 @@ export function ghostSubscription(p: NewnalUserProfile): ScenarioResult {
     daysSince: Math.floor((Date.now() - new Date(s.lastUsed).getTime()) / 86_400_000),
   }));
   const stale = enriched.filter((s) => s.daysSince > 30);
-  if (stale.length === 0) return missed('W2_GHOST_SUBSCRIPTION');
+  if (stale.length < 3) return missed('W2_GHOST_SUBSCRIPTION');
   const worst = stale.sort((a, b) => b.daysSince - a.daysSince)[0];
-  const monthlyWaste = ghosts.reduce((s, g) => s + g.monthlyCost, 0);
+  const monthlyWaste = stale.reduce((s, g) => s + g.monthlyCost, 0);
   return triggered(
     'W2_GHOST_SUBSCRIPTION',
-    0.85,
+    Math.min(0.58 + stale.length * 0.08 + Math.min(monthlyWaste / 240, 0.12), 0.93),
     [
       `"${worst.name}" — last used ${worst.daysSince} days ago, still $${worst.monthlyCost}/mo`,
-      `${ghosts.length} subscriptions with almost no usage`,
+      `${stale.length} subscriptions with almost no usage for 30+ days`,
       `Estimated monthly waste: $${monthlyWaste.toFixed(0)}`,
     ],
-    { worst, ghostCount: ghosts.length, monthlyWaste },
+    { worst, ghostCount: stale.length, monthlyWaste },
   );
 }
 
@@ -273,7 +273,7 @@ export function newVersionAvailable(p: NewnalUserProfile): ScenarioResult {
 export function healthGoalAlignment(p: NewnalUserProfile): ScenarioResult {
   const goals = p.health.fitnessGoals ?? [];
   if (goals.length === 0) return missed('P4_HEALTH_GOAL');
-  const stepsOk = p.health.stepsPerDay > 7000;
+  const stepsOk = p.health.stepsPerDay > 7500;
   const sleepOk = p.health.sleepAverage > 7;
   if (stepsOk && sleepOk) return missed('P4_HEALTH_GOAL');
   const gym = (p.schedules.nearbyPlaces ?? []).find((np) => np.type === 'gym');
@@ -295,21 +295,29 @@ export function healthGoalAlignment(p: NewnalUserProfile): ScenarioResult {
 }
 
 export function loyalSpotReminder(p: NewnalUserProfile): ScenarioResult {
-  const loyal = (p.taste.restaurantHistory ?? []).filter((r) => r.visitCount >= 5 && r.returnRate > 0.7);
+  const loyal = (p.taste.restaurantHistory ?? []).filter((r) => {
+    if (r.visitCount < 5 || r.returnRate <= 0.7 || !r.lastVisit) return false;
+    const daysSince = Math.floor((Date.now() - +new Date(r.lastVisit)) / 86_400_000);
+    return daysSince >= 60;
+  });
   if (loyal.length === 0) return missed('P5_LOYAL_SPOT');
   const nearby = p.schedules.nearbyPlaces ?? [];
   for (const place of loyal) {
     const m = nearby.find((n) => n.name === place.name);
     if (m) {
+      const daysSince = place.lastVisit
+        ? Math.floor((Date.now() - +new Date(place.lastVisit)) / 86_400_000)
+        : null;
       return triggered(
         'P5_LOYAL_SPOT',
         place.returnRate,
         [
           `You've been to "${place.name}" ${place.visitCount} times`,
           `Your return rate: ${Math.round(place.returnRate * 100)}%`,
+          daysSince !== null ? `It has been ${daysSince} days since your last visit` : 'You have not been there in a while',
           `${m.distance}m away right now`,
         ],
-        { place, distance: m.distance },
+        { place, distance: m.distance, daysSince },
       );
     }
   }

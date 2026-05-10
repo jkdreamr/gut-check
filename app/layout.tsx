@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Manrope, Space_Grotesk } from 'next/font/google';
 import './globals.css';
-import { Sidebar } from '@/components/layout/Sidebar';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const bodyFont = Manrope({ subsets: ['latin'], variable: '--font-body' });
+const displayFont = Space_Grotesk({ subsets: ['latin'], variable: '--font-display' });
 
 export const metadata: Metadata = {
   title: 'The Gut Check · Newnal Service Agent',
@@ -15,10 +15,13 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="antialiased min-h-screen flex bg-gray-50">
-        <Sidebar />
-        <div className="flex-1 min-w-0">{children}</div>
+    <html
+      lang="en"
+      data-theme="dark"
+      className={`${bodyFont.variable} ${displayFont.variable}`}
+    >
+      <body className="antialiased min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+        {children}
       </body>
     </html>
   );

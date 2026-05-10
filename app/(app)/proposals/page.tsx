@@ -32,12 +32,12 @@ export default async function ProposalsPage() {
   return (
     <main>
       <TopBar
-        title="Proposal history"
-        subtitle="Every Newnal-Circle The Gut Check has fired. Toggle acceptance to track downstream signal."
+        title="Pings"
+        subtitle="What Gut Check sent, what Newnal says happened, and the feedback loop that teaches the agent what was worth interrupting for."
       />
-      <div className="px-8 py-8 space-y-8">
+      <div className="mx-auto max-w-[1600px] px-5 py-8 sm:px-8 space-y-8">
         {databaseWarning && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="panel-muted border-amber-300/20 bg-amber-300/[0.08] px-4 py-3 text-sm text-amber-100">
             {databaseWarning}
           </div>
         )}

@@ -87,12 +87,12 @@ export async function discoverUsers(
   return resp.personal_ai;
 }
 
-// Send a richer, layout-driven Newnal-Circle. Discovered preset key from the
-// Newnal Agent Place dashboard (UI Templates page): the official notice
-// template is "official.admin.update.notice" with placeholders
-// `Simple Text0-headline` and `Simple Text0-body`. The Gut Check uses this
-// by default for warnings/nudges so the recipient sees the same notice card
-// the platform itself uses.
+// Optional richer, layout-driven Newnal-Circle support. Discovered preset key
+// from the Newnal Agent Place dashboard (UI Templates page): the official
+// notice template is "official.admin.update.notice" with placeholders
+// `Simple Text0-headline` and `Simple Text0-body`. Gut Check keeps
+// /circle/simple as the default send path because it has been more reliable in
+// live testing, but this template route is still available for richer cards.
 export const DEFAULT_TEMPLATE_PRESET_KEY = 'official.admin.update.notice';
 
 export async function sendTemplateCircle(

@@ -7,13 +7,17 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getPersonalAi } from '@/lib/newnal';
 import { adaptUserDetail } from '@/lib/synthesize';
 import { runAllScenarios } from '@/lib/rule-engine';
-import { generateProposal } from '@/lib/proposal-generator';
+import { generateProposal, generateProposalSync } from '@/lib/proposal-generator';
 import { ALL_SCENARIO_IDS } from '@/lib/scenarios';
 import { MOCK_USERS_BY_ID } from '@/lib/mock-users';
 import { buildAutonomyDecision } from '@/lib/autonomy';
 import { explainDatabaseIssue } from '@/lib/database';
 import { generateDynamicScenarios } from '@/lib/dynamic-scenarios';
-import type { RecentProposalSummary, ScenarioPerformanceSnapshot } from '@/lib/types';
+import type {
+  DecisionMoment,
+  RecentProposalSummary,
+  ScenarioPerformanceSnapshot,
+} from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -78,7 +82,12 @@ async function loadProposalTelemetry(userId: string): Promise<{
 }
 
 export async function POST(req: NextRequest) {
-  let body: { userId?: string; name?: string };
+  let body: {
+    userId?: string;
+    name?: string;
+    mode?: 'default';
+    moment?: DecisionMoment;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -107,6 +116,7 @@ export async function POST(req: NextRequest) {
       profile,
       triggered: coreTriggered,
       recentUserProposals: telemetry.recentUserProposals,
+      moment: body.moment,
     });
     const triggered = [...coreTriggered, ...dynamicTriggered];
     const autonomy = await buildAutonomyDecision({
@@ -114,16 +124,21 @@ export async function POST(req: NextRequest) {
       triggered,
       recentUserProposals: telemetry.recentUserProposals,
       performanceByScenario: telemetry.performanceByScenario,
+      moment: body.moment,
     });
 
-    const topScenarioIds = autonomy.candidates.slice(0, 3).map((candidate) => candidate.scenarioId);
+    const topScenarioIds = autonomy.candidates.slice(0, 5).map((candidate) => candidate.scenarioId);
     const top = topScenarioIds
       .map((scenarioId) => triggered.find((scenario) => scenario.scenarioId === scenarioId))
       .filter((scenario): scenario is NonNullable<typeof scenario> => Boolean(scenario));
 
     const topProposals = await Promise.all(
       top.map(async (scenario) => {
-        const prop = await generateProposal(scenario, profile);
+        const useRichGeneration =
+          scenario.scenarioId === autonomy.primaryScenarioId && !userId.startsWith('demo:');
+        const prop = useRichGeneration
+          ? await generateProposal(scenario, profile)
+          : generateProposalSync(scenario, profile);
         return { scenario, headline: prop.headline, body: prop.body, source: prop.source };
       }),
     );
@@ -137,6 +152,7 @@ export async function POST(req: NextRequest) {
         dataCompleteness: profile.dataCompleteness,
         personaProfile: profile.personaProfile,
       },
+      decisionMoment: body.moment,
       results: triggered,
       topProposals,
       autonomy,

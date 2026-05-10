@@ -28,54 +28,55 @@ export function LiveSentPanel() {
   }, []);
 
   return (
-    <section className="bg-gray-900 text-white rounded-xl p-6">
-      <div className="flex items-center justify-between gap-4 mb-4">
+    <section className="rounded-[1.75rem] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-6 text-white shadow-[0_24px_80px_rgba(15,23,42,0.24)]">
+      <div className="mb-4 flex items-center justify-between gap-4">
         <div>
-          <h2 className="font-semibold">Live from Newnal · /circle/sent</h2>
-          <p className="text-xs text-gray-400 mt-1">
-            Real Newnal-side history of Newnal-Circles this Service Agent has sent. Independent of the local log above.
+          <p className="text-[11px] uppercase tracking-[0.22em] text-cyan-300">Live from Newnal</p>
+          <h2 className="mt-2 font-display text-2xl tracking-tight text-white">Circle delivery view</h2>
+          <p className="mt-1 text-xs text-slate-400">
+            This panel reads Newnal&apos;s own `/circle/sent` history. It is independent of the local proposal log above.
           </p>
         </div>
         <button
           type="button"
           onClick={refresh}
           disabled={loading}
-          className="border border-gray-600 hover:border-gray-400 text-xs px-3 py-1.5 rounded-md disabled:opacity-50"
+          className="rounded-md border border-white/[0.15] px-3 py-1.5 text-xs hover:border-white/30 disabled:opacity-50"
         >
           {loading ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
       {error && (
-        <div className="bg-rose-900/30 border border-rose-700 text-rose-200 rounded-lg p-3 text-xs">
+        <div className="rounded-lg border border-rose-700 bg-rose-900/30 p-3 text-xs text-rose-200">
           {error}
         </div>
       )}
       {!data ? (
-        <p className="text-xs text-gray-500">Loading from Newnal Plaza…</p>
+        <p className="text-xs text-slate-500">Loading delivery history from Newnal…</p>
       ) : data.recipients.length === 0 ? (
-        <p className="text-xs text-gray-400">No Circles sent yet through this Service Agent.</p>
+        <p className="text-xs text-slate-400">No Circles have been sent yet through this Service Agent.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {data.recipients.map((r) => (
-            <div key={r.personal_ai_did} className="bg-gray-800 rounded-lg p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="size-9 rounded-full bg-rose-500 flex items-center justify-center text-xs font-semibold">
+            <div key={r.personal_ai_did} className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
+              <div className="mb-3 flex items-center gap-3">
+                <div className="flex size-9 items-center justify-center rounded-full bg-cyan-300/[0.15] text-xs font-semibold text-cyan-200">
                   {(r.personal_ai_name ?? '?')[0]?.toUpperCase()}
                 </div>
                 <div className="min-w-0">
                   <p className="font-semibold text-sm truncate">{r.personal_ai_name ?? 'Personal AI'}</p>
-                  <p className="text-[10px] font-mono text-gray-400 truncate">{shortDid(r.personal_ai_did)}</p>
+                  <p className="truncate font-mono text-[10px] text-slate-400">{shortDid(r.personal_ai_did)}</p>
                 </div>
-                <span className="ml-auto text-[10px] text-gray-400">{r.total_circles ?? r.circles.length} sent</span>
+                <span className="ml-auto text-[10px] text-slate-400">{r.total_circles ?? r.circles.length} sent</span>
               </div>
               <ul className="space-y-2">
                 {r.circles.slice(0, 4).map((c) => (
-                  <li key={c.circle_id} className="border-l-2 border-rose-500 pl-3 py-1">
+                  <li key={c.circle_id} className="border-l-2 border-cyan-300/70 pl-3 py-1">
                     <p className="text-sm">{c.circle_title}</p>
                     {c.circle_message && (
-                      <p className="text-[11px] text-gray-400 line-clamp-2">{c.circle_message}</p>
+                      <p className="line-clamp-2 text-[11px] text-slate-400">{c.circle_message}</p>
                     )}
-                    <p className="text-[10px] text-gray-500 mt-1">
+                    <p className="mt-1 text-[10px] text-slate-500">
                       {new Date(c.created_at).toLocaleString()} · {c.is_active ? 'active' : 'closed'}
                     </p>
                   </li>

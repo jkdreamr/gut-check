@@ -8,12 +8,19 @@ interface TopBarProps {
 
 export function TopBar({ title, subtitle, right }: TopBarProps) {
   return (
-    <header className="px-8 py-5 border-b border-gray-200 bg-white flex items-start justify-between gap-6 sticky top-0 z-10">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-        {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+    <header className="sticky top-0 z-20 border-b border-white/[0.06] bg-[rgba(7,17,31,0.72)] backdrop-blur-2xl">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-5 py-5 sm:px-8 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <p className="app-kicker">Gut Check agent</p>
+          <h1 className="app-title mt-2 text-3xl font-semibold text-white sm:text-[2rem]">{title}</h1>
+          {subtitle && (
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+              {subtitle}
+            </p>
+          )}
+        </div>
+        {right && <div className="flex flex-wrap items-center gap-2">{right}</div>}
       </div>
-      {right && <div className="flex items-center gap-2">{right}</div>}
     </header>
   );
 }

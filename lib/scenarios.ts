@@ -26,7 +26,7 @@ export const SCENARIOS: ScenarioMeta[] = [
     type: 'warning',
     shortDescription: 'You already pay for things you never open.',
     longDescription:
-      'An active subscription in the same category has not been used in 30+ days. Surfaces it before another auto-renew or upsell.',
+      'Three or more active subscriptions have barely been used in 30+ days. Surfaces the quiet monthly bleed before another renewal or upsell.',
   },
   {
     id: 'W3_REPEAT_REGRET',

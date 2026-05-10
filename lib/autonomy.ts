@@ -1,6 +1,7 @@
 import type {
   AutonomyCandidate,
   AutonomyDecision,
+  DecisionMoment,
   NewnalUserProfile,
   RecentProposalSummary,
   ScenarioPerformanceSnapshot,
@@ -14,6 +15,7 @@ interface BuildAutonomyInput {
   triggered: ScenarioResultTriggered[];
   recentUserProposals: RecentProposalSummary[];
   performanceByScenario: Record<string, ScenarioPerformanceSnapshot>;
+  moment?: DecisionMoment;
 }
 
 function clamp(value: number, min = 0, max = 1) {
@@ -59,8 +61,11 @@ function getDistanceMeters(result: ScenarioResultTriggered): number | undefined 
   return undefined;
 }
 
-function deriveTimingScore(result: ScenarioResultTriggered): number {
-  const distance = getDistanceMeters(result);
+function deriveTimingScore(
+  result: ScenarioResultTriggered,
+  moment?: DecisionMoment,
+): number {
+  const distance = moment?.location?.distanceMeters ?? getDistanceMeters(result);
   if (typeof distance === 'number') {
     if (distance <= 120) return 0.96;
     if (distance <= 250) return 0.9;
@@ -79,6 +84,9 @@ function deriveTimingScore(result: ScenarioResultTriggered): number {
   if (typeof ctx.monthsSince === 'number' || typeof ctx.monthsOld === 'number') {
     return 0.68;
   }
+  if (moment?.transaction?.status === 'pending') {
+    return 0.94;
+  }
   return 0.62;
 }
 
@@ -94,6 +102,45 @@ function deriveBehaviorFit(
     return clamp(0.45 + growth * 0.35 + completeness * 0.1, 0.35, 0.95);
   }
   return clamp(0.42 + community * 0.18 + growth * 0.18 + completeness * 0.12, 0.35, 0.95);
+}
+
+function deriveMomentAlignment(
+  result: ScenarioResultTriggered,
+  moment?: DecisionMoment,
+): number {
+  if (!moment) return 0;
+
+  const title = moment.title.toLowerCase();
+  const merchant = moment.transaction?.merchantName.toLowerCase() ?? '';
+  const category = moment.transaction?.category.toLowerCase() ?? '';
+  const place = moment.location?.placeName.toLowerCase() ?? '';
+  const joined = [title, merchant, category, place, moment.description.toLowerCase()].join(' ');
+  const scenarioId = result.scenarioId;
+
+  const baseByKind: Record<DecisionMoment['kind'], number> = {
+    payment: result.scenarioType === 'warning' ? 0.1 : 0.04,
+    location: 0.08,
+    subscription: scenarioId === 'W2_GHOST_SUBSCRIPTION' ? 0.28 : 0.04,
+    health: scenarioId === 'P4_HEALTH_GOAL' ? 0.24 : 0.06,
+    restaurant:
+      scenarioId === 'W4_FRIEND_WARNING' || scenarioId === 'W5_BETTER_RESTAURANT' || scenarioId === 'P5_LOYAL_SPOT'
+        ? 0.24
+        : 0.04,
+    custom: 0.05,
+  };
+
+  let alignment = baseByKind[moment.kind] ?? 0.04;
+
+  if (moment.likelyScenarioIds?.includes(result.scenarioId)) alignment += 0.36;
+  if (scenarioId === 'W1_GHOST_GYM' && joined.includes('gym')) alignment += 0.2;
+  if (scenarioId === 'W2_GHOST_SUBSCRIPTION' && joined.includes('subscription')) alignment += 0.2;
+  if ((scenarioId === 'W3_REPEAT_REGRET' || scenarioId === 'W6_SIMILAR_DISAPPOINTMENT') && (joined.includes('electronics') || joined.includes('product'))) alignment += 0.18;
+  if ((scenarioId === 'W4_FRIEND_WARNING' || scenarioId === 'W5_BETTER_RESTAURANT') && joined.includes('restaurant')) alignment += 0.18;
+  if ((scenarioId === 'P2_DORMANT_INTEREST' || scenarioId === 'P4_HEALTH_GOAL') && (joined.includes('goal') || joined.includes('running'))) alignment += 0.18;
+  if (moment.transaction?.status === 'pending' && result.scenarioType === 'warning') alignment += 0.08;
+  if (moment.location?.source === 'live') alignment += 0.04;
+
+  return clamp(alignment, 0, 0.95);
 }
 
 function deriveFatiguePenalty(
@@ -121,12 +168,33 @@ function deriveFatiguePenalty(
 function creativeDirection(
   profile: NewnalUserProfile,
   result: ScenarioResultTriggered,
+  moment?: DecisionMoment,
 ): string {
   const firstName = profile.displayName.split(' ')[0] ?? profile.displayName;
   if (result.scenarioType === 'warning') {
-    return `${firstName}-specific protective note: lead with one sharp regret datapoint, then end on a pause-inducing question.`;
+    return `${firstName}-specific protective note${moment?.transaction?.status === 'pending' ? ' for a live payment moment' : ''}: lead with one sharp regret datapoint, then end on a pause-inducing question.`;
   }
   return `${firstName}-specific momentum nudge: concrete, optimistic, and anchored to what is nearby right now.`;
+}
+
+function decisionExplanation(
+  result: ScenarioResultTriggered,
+  moment: DecisionMoment | undefined,
+  sendScore: number,
+  adaptiveFloor: number,
+) {
+  const scoreLine = `${Math.round(sendScore * 100)} beats ${Math.round(adaptiveFloor * 100)}`;
+  if (!moment) {
+    return `The profile pattern is strong enough to justify an interrupt because ${scoreLine}.`;
+  }
+
+  if (moment.transaction?.status === 'pending') {
+    return `${moment.transaction.merchantName} is a live payment moment, and ${result.scenarioName.toLowerCase()} is strong enough that ${scoreLine} before the swipe.`;
+  }
+  if (moment.location?.placeName) {
+    return `${moment.location.placeName} puts the user inside a real decision moment, and ${result.scenarioName.toLowerCase()} clears the bar with ${scoreLine}.`;
+  }
+  return `${moment.title} lines up with ${result.scenarioName.toLowerCase()}, so the agent earned the right to interrupt because ${scoreLine}.`;
 }
 
 function buildReasons(
@@ -136,6 +204,9 @@ function buildReasons(
   acceptancePrediction: number,
   fatiguePenalty: number,
   historicalAcceptance: number | null,
+  noveltyBoost: number,
+  momentAlignment: number,
+  moment?: DecisionMoment,
 ): string[] {
   const reasons = [
     `${Math.round(result.confidence * 100)}% evidence strength from the rule engine`,
@@ -147,6 +218,12 @@ function buildReasons(
     reasons.push(`${Math.round(historicalAcceptance * 100)}% historical acceptance on this scenario`);
   } else {
     reasons.push('Cold-start scenario: using global priors until the model sees outcomes');
+  }
+
+  reasons.push(`${Math.round(noveltyBoost * 100)} novelty lift from not repeating the same interruption`);
+
+  if (moment) {
+    reasons.push(`${Math.round(momentAlignment * 100)} decision-moment alignment with ${moment.title.toLowerCase()}`);
   }
 
   if (fatiguePenalty > 0.18) {
@@ -166,7 +243,7 @@ function buildHeuristicDecision(
       : input.performanceByScenario[result.scenarioId];
     const historicalAcceptance = performance?.acceptanceRate ?? null;
     const adaptiveFloor = deriveAdaptiveFloor(result.scenarioType, performance);
-    const timingScore = deriveTimingScore(result);
+    const timingScore = deriveTimingScore(result, input.moment);
     const behaviorFit = deriveBehaviorFit(input.profile, result);
     const fatiguePenalty = isDemoProfile
       ? 0
@@ -175,6 +252,7 @@ function buildHeuristicDecision(
     const noveltyBoost = input.recentUserProposals.some((p) => p.scenarioId === result.scenarioId)
       ? 0
       : 0.04;
+    const momentAlignment = deriveMomentAlignment(result, input.moment);
     const demoBoost = isDemoProfile ? 0.18 : 0;
 
     const sendScore = clamp(
@@ -183,6 +261,7 @@ function buildHeuristicDecision(
         + behaviorFit * 0.14
         + history * 0.18
         + noveltyBoost
+        + momentAlignment * 0.12
         + demoBoost
         - fatiguePenalty,
       0,
@@ -213,8 +292,11 @@ function buildHeuristicDecision(
       timingScore,
       fatiguePenalty,
       behaviorFit,
+      noveltyBoost,
+      momentAlignment,
       historicalAcceptance,
-      creativeDirection: creativeDirection(input.profile, result),
+      decisionExplanation: decisionExplanation(result, input.moment, sendScore, adaptiveFloor),
+      creativeDirection: creativeDirection(input.profile, result, input.moment),
       reasons: buildReasons(
         result,
         sendScore,
@@ -222,6 +304,9 @@ function buildHeuristicDecision(
         acceptancePrediction,
         fatiguePenalty,
         historicalAcceptance,
+        noveltyBoost,
+        momentAlignment,
+        input.moment,
       ),
     };
   }).sort((a, b) => b.sendScore - a.sendScore);
@@ -253,16 +338,18 @@ function buildHeuristicDecision(
     primaryScenarioId: sendable?.scenarioId,
     summaryHeadline:
       recommendedAction === 'send_now'
-        ? `Autopilot wants to fire ${chosen.scenarioName} now.`
-        : `Autopilot is holding ${chosen.scenarioName} for a cleaner moment.`,
+        ? `Gut Check wants to fire ${chosen.scenarioName} now.`
+        : `Gut Check is holding ${chosen.scenarioName} for a cleaner moment.`,
     summaryBody:
       recommendedAction === 'send_now'
-        ? `The combination of evidence, timing, and predicted acceptance beats the model-owned floor.`
-        : `The evidence is real, but the timing or fatigue signal does not justify an interruption yet.`,
+        ? input.moment?.transaction?.status === 'pending'
+          ? `A real decision moment is in flight, and the combined evidence beats the model-owned floor before the swipe lands.`
+          : `The combination of evidence, timing, and predicted acceptance beats the model-owned floor.`
+        : `The evidence is real, but the timing, fatigue, or moment quality does not justify an interruption yet.`,
     narrative: [
       `${Math.round(chosen.sendScore * 100)} send score against a ${Math.round(chosen.adaptiveFloor * 100)} adaptive floor`,
       `${Math.round(chosen.acceptancePrediction * 100)}% predicted acceptance if sent now`,
-      chosen.creativeDirection,
+      chosen.decisionExplanation,
     ],
     candidates,
   };
@@ -271,6 +358,7 @@ function buildHeuristicDecision(
 async function reviewWithWaveSpeed(
   profile: NewnalUserProfile,
   heuristic: AutonomyDecision,
+  moment?: DecisionMoment,
 ): Promise<AutonomyDecision | null> {
   if (!hasWaveSpeed() || heuristic.candidates.length === 0) {
     return null;
@@ -293,6 +381,7 @@ async function reviewWithWaveSpeed(
 - location: ${profile.profileSnapshot.location}
 - persona: ${profile.profileSnapshot.persona}
 - goal: ${profile.profileSnapshot.goal}
+${moment ? `- decision moment: ${JSON.stringify(moment)}` : ''}
 
 Heuristic recommendation:
 ${JSON.stringify(heuristic, null, 2)}
@@ -341,6 +430,7 @@ Return only valid JSON:
 async function reviewWithClaude(
   profile: NewnalUserProfile,
   heuristic: AutonomyDecision,
+  moment?: DecisionMoment,
 ): Promise<AutonomyDecision | null> {
   if (!process.env.ANTHROPIC_API_KEY || heuristic.candidates.length === 0) {
     return null;
@@ -357,6 +447,7 @@ User:
 - location: ${profile.profileSnapshot.location}
 - persona: ${profile.profileSnapshot.persona}
 - goal: ${profile.profileSnapshot.goal}
+${moment ? `- decision moment: ${JSON.stringify(moment)}` : ''}
 
 Heuristic recommendation:
 ${JSON.stringify(heuristic, null, 2)}
@@ -422,8 +513,19 @@ export async function buildAutonomyDecision(
   input: BuildAutonomyInput,
 ): Promise<AutonomyDecision> {
   const heuristic = buildHeuristicDecision(input);
-  const waveSpeedReview = await reviewWithWaveSpeed(input.profile, heuristic);
-  if (waveSpeedReview) return waveSpeedReview;
-  const reviewed = await reviewWithClaude(input.profile, heuristic);
-  return reviewed ?? heuristic;
+  const shouldRunWaveSpeedReview =
+    process.env.WAVESPEED_POLICY_REVIEW === '1' && !input.profile.id.startsWith('demo:');
+  if (shouldRunWaveSpeedReview) {
+    const waveSpeedReview = await reviewWithWaveSpeed(input.profile, heuristic, input.moment);
+    if (waveSpeedReview) return waveSpeedReview;
+  }
+
+  const shouldRunClaudeReview =
+    process.env.ANTHROPIC_POLICY_REVIEW === '1' && !input.profile.id.startsWith('demo:');
+  if (shouldRunClaudeReview) {
+    const reviewed = await reviewWithClaude(input.profile, heuristic, input.moment);
+    if (reviewed) return reviewed;
+  }
+
+  return heuristic;
 }

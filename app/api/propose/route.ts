@@ -5,9 +5,10 @@
 //          uiTemplatePresetKey?: string,
 //          backgroundImageUrl?: string,
 //          voiceUrl?: string }
-// When useTemplate is true (default), we use /circle/template with the
-// "official.admin.update.notice" preset (placeholders `Simple Text0-headline`
-// and `Simple Text0-body`). Otherwise we use /circle/simple.
+// Gut Check defaults to /circle/simple because it has been the most reliable
+// live send path. When useTemplate is true, we switch to /circle/template with
+// the "official.admin.update.notice" preset (placeholders
+// `Simple Text0-headline` and `Simple Text0-body`).
 
 import { NextResponse, type NextRequest } from 'next/server';
 import {

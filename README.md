@@ -1,163 +1,336 @@
-# The Gut Check
+# Gut Check
 
-A Newnal Service Agent for the Stanford AI OS Hackathon (May 9–10, 2026).
+Gut Check is a Newnal service agent that catches decision moments before they become regrets.
 
-> Sends personalized, data-driven proposals to users at the moment of decision —
-> warning them against purchases they've regretted before, nudging them toward
-> opportunities their data already says they want, and optionally synthesizing
-> new intervention angles beyond the fixed core scenarios.
+It is built for the Stanford AI OS Hackathon on top of Newnal Agent Place. Instead of blasting generic notifications, Gut Check waits until context, history, and timing line up, then sends a short personalized warning or nudge through Newnal Circle.
 
-This Service Agent runs on top of the [Newnal Agent Place](https://agentplace.newnal.ai/)
-public API. It discovers Personal AIs in the Newnal Plaza, runs their categorized
-profile through an **11-scenario rule engine**, lets an **autonomous policy layer**
-decide whether interruption is justified, generates proposal copy, and fires it as
-a **Newnal-Circle** to the user's phone.
+> A warning is only useful if it arrives before the swipe.
 
-## What it does
+## Why this fits Newnal
 
-The Gut Check ships **6 warnings + 5 nudges**:
+Newnal is not just a profile store. It is an operating system for Personal AIs and service agents that can act on a person’s behalf.
 
-| ID  | Name                       | Type    | Trigger (high level) |
-|-----|----------------------------|---------|----------------------|
-| W1  | Ghost Gym                  | warning | 2+ past gyms cancelled <90 days, near a gym |
-| W2  | Ghost Subscription         | warning | 3+ active subs unused for 30+ days |
-| W3  | Repeat Regret              | warning | 3+ purchases in same category, >50% abandoned |
-| W4  | Friend Warning             | warning | Restaurant nearby with avg friend rating <3.0 |
-| W5  | Better Restaurant Nearby   | warning | A loyal spot is closer than the new option |
-| W6  | Similar Disappointment     | warning | 2+ similar past purchases returned/underused |
-| P1  | Seasonal Gap               | nudge   | No seasonal purchase in 12+ months, near store |
-| P2  | Dormant Interest Activated | nudge   | Searched 30–180 days ago, never bought, now near store |
-| P3  | New Version Available      | nudge   | Tech purchase 18+ months old, near electronics store |
-| P4  | Health Goal Alignment      | nudge   | Stated goal + below target + nearby gym + no ghost-gym pattern |
-| P5  | Loyal Spot Reminder        | nudge   | 5+ visit / 70%+ return spot, not visited 60+ days, now nearby |
+Gut Check takes that seriously:
 
-## How it talks to Newnal
+- it reads a Newnal Personal AI profile
+- turns raw profile data into decision-ready signals
+- watches for a live or demo decision moment
+- decides whether interruption is actually worth it
+- sends a Circle only when the moment earned it
 
-| Endpoint | Used for |
-|----------|----------|
-| `POST /api/service-agent/personal-ai/search` | Natural-language discovery in the Plaza |
-| `GET  /api/service-agent/personal-ai/{did}`  | Categorized personal + AI data |
-| `POST /api/service-agent/circle/simple`      | Fallback raw text Newnal-Circle |
-| `POST /api/service-agent/circle/template`    | Default — UI-template-driven Circle (preset `official.admin.update.notice`) |
-| `GET  /api/service-agent/circle/sent`        | "Live from Newnal" panel on the Proposals page |
-| `POST /api/service-agent/drive/upload`       | Optional background image / voice URL for richer cards |
+The point is not "more notifications." The point is fewer, better interventions.
 
-The Gut Check sends Newnal-Circles by default through the
-**official.admin.update.notice** UI Template (placeholders
-`Simple Text0-headline` and `Simple Text0-body`) so they render as the same
-notice card the platform itself uses.
+## What the product does
+
+Gut Check combines five layers:
+
+1. Newnal Personal AI profile retrieval and search
+2. Decision moment detection
+3. An 11-scenario rule engine
+4. An autonomous policy layer that chooses `send_now`, `watch`, or `hold`
+5. Newnal Circle delivery plus proposal logging and feedback
+
+### Architecture
+
+```text
+Newnal Personal AI
+        |
+        v
+Profile adapter + deterministic synthesis
+        |
+        v
+Decision moment
+(payment / location / restaurant / subscription / health)
+        |
+        v
+11 core scenarios + optional WaveSpeed-generated scenarios
+        |
+        v
+Autonomy policy
+(timing, behavior fit, novelty, fatigue, acceptance history)
+        |
+        v
+Proposal generation
+        |
+        v
+Newnal Circle (/circle/simple by default)
+        |
+        v
+Proposal log + acceptance feedback + pattern telemetry
+```
+
+## Wow features
+
+### 1. Landing page + demo flow
+
+`/` is the marketing front door. `/demo` is the judge-facing experience.
+
+It lets you pick a live or demo decision moment and shows:
+
+- the incoming payment or location signal
+- supporting evidence cards
+- matched scenarios
+- the autonomy trace
+- the final notification preview
+- the actual Newnal send result
+
+This is the fastest route to show the full product story in under two minutes.
+
+### 2. Decision moments as first-class inputs
+
+Gut Check does not just react to static profile traits. It accepts a structured `DecisionMoment`, including:
+
+- `payment` moments
+- `subscription` renewal moments
+- `restaurant` moments
+- `location` moments
+- `health` moments
+
+For demo purposes, transaction events are honest demo signals, not fake bank integrations. The abstraction is ready for future wallet or payment API hooks.
+
+### 3. Optional system checks
+
+`/health` runs a simple systems check for:
+
+- Postgres
+- Newnal
+- WaveSpeed
+- Anthropic fallback
+
+This makes last-minute demo setup much less risky.
+
+## Core scenarios
+
+Gut Check ships with 11 core scenarios: 6 warnings and 5 nudges.
+
+| ID | Name | Type | Trigger |
+| --- | --- | --- | --- |
+| W1 | Ghost Gym | warning | 2+ gym memberships cancelled within 90 days, plus a nearby gym or signup moment |
+| W2 | Ghost Subscription | warning | 3+ underused subscriptions with 30+ days of drift |
+| W3 | Repeat Regret | warning | 3+ purchases in one category, with poor follow-through |
+| W4 | Friend Warning | warning | nearby place with weak friend ratings |
+| W5 | Better Restaurant Nearby | warning | current restaurant choice loses to a nearby loyal favorite |
+| W6 | Similar Disappointment | warning | similar items were returned or barely used before |
+| P1 | Seasonal Gap | nudge | long seasonal gap plus a relevant nearby store |
+| P2 | Dormant Interest Activated | nudge | searched before, never bought, now near the right place |
+| P3 | New Version Available | nudge | old device plus nearby electronics context |
+| P4 | Health Goal Alignment | nudge | stated goal, below a 7,500 step target, relevant place nearby |
+| P5 | Loyal Spot Reminder | nudge | favorite place not visited in 60+ days, now nearby |
+
+Each scenario emits:
+
+- confidence
+- evidence points
+- proposal context
+
+Those candidates then flow into the autonomous policy layer.
 
 ## Autonomous policy layer
 
-The rule engine is no longer operator-tuned. Each triggered scenario now flows
-through an autonomous policy layer that:
+The rule engine does not send on its own. Gut Check runs an autonomy pass that scores each candidate using:
 
-- computes a **model-owned adaptive floor** per scenario
-- blends evidence strength, timing, fatigue, and historical acceptance
-- decides whether to **send now** or **hold**
-- selects the winning scenario automatically
+- scenario confidence
+- timing score
+- behavior fit
+- historical acceptance
+- novelty
+- fatigue penalty
+- moment alignment
+- adaptive floor
 
-If `ANTHROPIC_API_KEY` is present, Claude reviews the heuristic decision and can
-override the final dispatch posture. Without it, the embedded autonomy engine
-still runs deterministically.
+The final decision is one of:
 
-If `WAVESPEED_API_KEY` is present, the app can also:
+- `send_now`
+- `watch`
+- `hold`
 
-- synthesize additional scenario candidates beyond the fixed 11
-- review send/hold posture through WaveSpeed's OpenAI-compatible LLM endpoint
-- generate proposal copy through WaveSpeed instead of the template path
+The UI exposes this trace so the interrupt feels technically legible rather than magical.
 
-## Synthesis adapter
+## WaveSpeed and Claude
 
-Some signals the rule engine wants — gym cancellation history, subscription
-*usage* frequency, friends' ratings of nearby places, phone search history with
-categories, nearby-place telemetry — are **not exposed** in the live Newnal API.
-The Gut Check's [synthesis adapter](lib/synthesize.ts) deterministically fills
-these gaps from a DID-seeded RNG. Two calls with the same DID always produce
-the same synthesized profile, so screenshots, demos, and proposal logs stay
-reproducible. Real fields (recent purchases, restaurants, education, language,
-character/values radar values, location) come from the API verbatim.
+WaveSpeed is optional, but when configured it can:
 
-## Stack
+- synthesize extra scenario candidates beyond the fixed 11
+- rewrite proposal copy to feel more human
+- generate a short explanation of why the agent interrupted
 
-- Next.js 14 (App Router), TypeScript
-- Tailwind CSS + Recharts (radar + bar charts)
-- Prisma + hosted Postgres (proposal log + scenario telemetry)
-- Optional WaveSpeed LLM (`WAVESPEED_API_KEY`) for dynamic scenario synthesis,
-  proposal copy, and policy review
-- Optional Anthropic Claude (`ANTHROPIC_API_KEY`) for richer proposal copy
-  and policy-layer review; ships with deterministic fallbacks that require no key
+Anthropic is also optional. It acts as a secondary model path for richer copy or policy review.
 
-## Setup
+Important guardrails:
 
-```bash
-npm install
-cp .env.example .env.local       # then fill in NEWNAL_API_KEY
-npx prisma db push               # creates the schema in your hosted Postgres
-npm run dev                      # http://localhost:3000
-```
+- the deterministic rule engine always remains the reliable fallback
+- the app never depends on an LLM to keep demo mode working
+- JSON parsing is defensive
+- external models only receive compact structured context, not the full raw Newnal payload
 
-`.env.local`:
+## Demo moments
 
-```env
-NEWNAL_API_BASE=https://agentplace.newnal.ai/api/service-agent
-NEWNAL_API_KEY=nsa_<your-key>
-DATABASE_URL="postgresql://postgres:password@db.example.com:5432/gut_check?sslmode=require"
-WAVESPEED_API_KEY=
-WAVESPEED_MODEL=bytedance-seed/seed-1.6-flash
-WAVESPEED_BASE_URL=https://llm.wavespeed.ai/v1
-# Optional — set to enable Claude-generated proposal copy:
-# ANTHROPIC_API_KEY=
-```
+The demo flow ships with curated decision moments, including:
 
-For Vercel, set the same `DATABASE_URL` in Project Settings to a hosted Postgres
-instance. The build now runs `prisma generate` automatically. If the database is
-new, run `npm run db:migrate` or `npm run db:push` once before first use so the
-`ProposalLog` and `ScenarioConfig` tables exist.
+- About to pay for another gym membership
+- Near a restaurant friends disliked
+- About to buy a similar product they usually regret
+- Unused subscriptions quietly draining money
+- Near a place that matches a dormant goal
 
-WaveSpeed notes:
+These moments combine:
 
-- The LLM endpoint is `https://llm.wavespeed.ai/v1`
-- Model calls use the OpenAI Chat Completions format
-- WaveSpeed's docs say API keys require an activated/top-upped account before
-  they work
+- user profile history
+- location context
+- social signal
+- payment intent signal
+- behavioral patterns
+
+Demo data is clearly labeled as `demo` or `synthetic` in the decision moment layer.
 
 ## Pages
 
-| Route                | What's there |
-|----------------------|--------------|
-| `/`                  | Dashboard: autonomous doctrine + acceptance chart + recent dispatches |
-| `/users`             | Plaza search via natural-language query, results grid with mini-radar per user |
-| `/users/[did]`       | Detail: credibility score, profile snapshot pills, 2 radar charts, 4 category cards, **AI Decision Layer** autopilot panel |
-| `/proposals`         | Local history table + "Live from Newnal" panel reading `/circle/sent` |
-| `/scenarios`         | `AI Brain`: read-only governance board showing adaptive floors, autonomous posture, and any live WaveSpeed-generated scenarios |
-| `/demo`              | Full-screen autonomous live demo with 3 mock users + AI-owned send/hold decisions |
+| Route | Purpose |
+| --- | --- |
+| `/` | marketing landing page with the video slot and product story |
+| `/app` | working agent app: overview, learning loop, latest sends |
+| `/demo` | judge-facing cinematic demo mode, with optional `?did=` support for real people |
+| `/users` | live Newnal Plaza search in plain English |
+| `/users/[did]` | full profile, signal cards, radar views, and Gut Check intercept panel |
+| `/proposals` | local proposal history plus live Newnal `/circle/sent` view |
+| `/scenarios` | read-only pattern telemetry |
+| `/health` | optional system check page |
 
-## API routes
+## Newnal API usage
 
-| Route                              | Wraps |
-|-------------------------------------|-------|
-| `GET  /api/users?q=<NL>`            | `/personal-ai/search` (returns adapted user summaries) |
-| `GET  /api/users/[did]`             | `/personal-ai/{did}` (returns adapted profile) |
-| `POST /api/analyze`                 | runs the 11 scenarios + autonomous policy layer + top-3 proposal copy |
-| `POST /api/propose`                 | sends via `/circle/template` (or `/circle/simple`) and logs |
-| `GET  /api/proposals` / `PATCH`     | local history + acceptance toggle |
-| `GET  /api/scenarios`               | read-only AI governance telemetry |
-| `GET  /api/circle/sent`             | proxies `/circle/sent` for the live panel |
-| `POST /api/drive/upload`            | proxies `/drive/upload` |
+Gut Check uses these Newnal Agent Place endpoints:
 
-## Demo Mode
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/service-agent/personal-ai/search` | natural-language user discovery |
+| `GET /api/service-agent/personal-ai/{did}` | full Personal AI profile retrieval |
+| `POST /api/service-agent/circle/simple` | default live send route |
+| `POST /api/service-agent/circle/template` | optional richer template-based Circle path |
+| `GET /api/service-agent/circle/sent` | live delivery history |
+| `POST /api/service-agent/drive/upload` | optional richer assets for future Circle payloads |
 
-The `/demo` route ships three engineered mock users that *guarantee* specific
-scenarios fire:
+Gut Check defaults to `/circle/simple` because it has been the most reliable live send path in testing.
 
-- **Alex Park** (28, SF) → Ghost Gym (2 cancelled gym memberships, near a new one)
-- **Jordan Reyes** (34, Palo Alto) → Friend Warning (nearby restaurant rated 2.3/5 by 5 friends)
-- **Sam Chen** (26, Menlo Park) → Dormant Interest (Brooks Ghost 16 search 45 days ago, near Fleet Feet)
+## Tech stack
 
-When the demo user is selected, sends are simulated locally rather than firing a
-Newnal-Circle, so you can present without polluting the live `/circle/sent` log.
+- Next.js 14 App Router
+- TypeScript
+- Tailwind CSS
+- Recharts
+- Prisma
+- Hosted Postgres
+- Newnal Agent Place API
+- Optional WaveSpeed
+- Optional Anthropic
 
-## License
+## Environment variables
 
-Built for the Stanford AI OS Hackathon. MIT.
+Copy `.env.example` to `.env.local` and fill in:
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `NEWNAL_API_BASE` | yes | normally `https://agentplace.newnal.ai/api/service-agent` |
+| `NEWNAL_API_KEY` | for live Newnal use | demo mode still works without it |
+| `DATABASE_URL` | for logs and telemetry | must be hosted Postgres in deploy environments |
+| `WAVESPEED_API_KEY` | optional | enables scenario synthesis and richer copy/review |
+| `WAVESPEED_MODEL` | optional | defaults to `bytedance-seed/seed-1.6-flash` |
+| `WAVESPEED_BASE_URL` | optional | defaults to `https://llm.wavespeed.ai/v1` |
+| `ANTHROPIC_API_KEY` | optional | secondary model path |
+
+## Local development
+
+```bash
+npm install
+cp .env.example .env.local
+```
+
+Set a real Postgres URL in `.env.local`, then initialize the schema:
+
+```bash
+npm run db:push
+```
+
+Run the app:
+
+```bash
+npm run dev
+```
+
+Useful checks:
+
+```bash
+npm run lint
+npm run build
+```
+
+## Deploying on Vercel
+
+1. Create or attach a hosted Postgres database.
+2. Set these environment variables in Vercel:
+   - `DATABASE_URL`
+   - `NEWNAL_API_KEY`
+   - optionally `WAVESPEED_API_KEY`
+   - optionally `WAVESPEED_MODEL`
+   - optionally `WAVESPEED_BASE_URL`
+   - optionally `ANTHROPIC_API_KEY`
+3. Run the migration once against that Postgres database:
+
+```bash
+DATABASE_URL="your-postgres-url" npm run db:migrate
+```
+
+4. Deploy.
+
+Notes:
+
+- the build already runs `prisma generate`
+- the app degrades gracefully if Newnal, WaveSpeed, or Postgres are missing
+- demo mode still loads even when live integrations are unavailable
+
+## Judge demo script
+
+1. Open `/`.
+2. Click `Try it out` or go straight to `/demo`.
+3. Pick "About to pay for another gym membership" or "About to buy a product they usually regret."
+4. Point out the incoming payment signal and location signal.
+5. Run the check.
+6. Show the scenario stack and the decision trace.
+7. Explain that the agent can also choose to stay quiet.
+8. Show the phone preview.
+9. Send the Circle.
+10. Open `/proposals` to show the feedback loop.
+
+## Synthetic demo data
+
+Not every signal exists in the raw Newnal API today. Gut Check uses deterministic synthesis for reproducible demos, including some:
+
+- subscription usage patterns
+- gym cancellation behavior
+- friend ratings
+- dormant searches
+- nearby places
+
+That synthesis is stable per DID so the same user produces the same demo conditions across runs.
+
+Real Newnal data and synthetic/demo data are deliberately kept conceptually separate in the UI and code.
+
+## Privacy boundary
+
+- Newnal data is used server-side.
+- Browser clients do not receive API keys.
+- Demo and synthetic fields are labeled.
+- External LLM calls receive compact structured context rather than full raw profile dumps.
+- Sensitive data should stay excluded from prompts unless explicitly permitted.
+
+## Reliability notes
+
+- No page should hard-crash if `DATABASE_URL` is missing or invalid.
+- If Newnal is missing, the demo still works in safe demo mode.
+- If WaveSpeed is missing, deterministic proposal generation and autonomy still work.
+- Prisma routes are server-only and marked dynamic where needed.
+
+## Hackathon framing
+
+Gut Check is a service agent with restraint.
+
+It does not assume every insight deserves an interruption. It waits for the narrow slice of time where a person is actually about to do something, checks whether the evidence is strong enough, and only then tries to help.

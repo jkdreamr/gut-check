@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { TopBar } from '@/components/layout/TopBar';
 import { UserDataRadar } from '@/components/users/UserDataRadar';
 import { AnalyzePanel } from '@/components/users/AnalyzePanel';
+import { deriveLikelyDecisionMoments } from '@/lib/decision-moments';
 import { loadUserProfile } from '@/lib/profile-loader';
 import { credibilityColor, initials, shortDid } from '@/lib/utils';
 
@@ -36,38 +37,47 @@ export default async function UserDetailPage({ params }: Props) {
   }
 
   const completenessPct = Math.round(profile.profileSnapshot.completeness * 100);
+  const likelyMoments = deriveLikelyDecisionMoments(profile);
 
   return (
     <main>
       <TopBar
         title={profile.displayName}
         subtitle={`${profile.profileSnapshot.age} · ${profile.profileSnapshot.location} · ${shortDid(profile.id)}`}
-        right={
-          <Link
-            href="/users"
-            className="text-sm text-gray-500 hover:text-gray-900"
-          >
-            ← Back
-          </Link>
-        }
+        right={(
+          <>
+            <Link
+              href={`/demo?did=${encodeURIComponent(profile.id)}`}
+              className="app-button-primary px-4 py-2.5"
+            >
+              Open demo
+            </Link>
+            <Link
+              href="/users"
+              className="app-button-secondary px-4 py-2.5"
+            >
+              Back
+            </Link>
+          </>
+        )}
       />
-      <div className="px-8 py-8 space-y-6">
+      <div className="mx-auto max-w-[1600px] px-5 py-8 sm:px-8 space-y-6">
         {/* Header summary */}
-        <section className="bg-white rounded-xl border border-gray-200 p-6 grid grid-cols-1 md:grid-cols-12 gap-6">
+        <section className="panel-elevated grid grid-cols-1 gap-6 p-6 md:grid-cols-12">
           <div className="md:col-span-4 flex items-start gap-4">
-            <div className="size-16 shrink-0 rounded-full bg-gradient-to-br from-rose-100 to-amber-100 flex items-center justify-center text-rose-700 font-semibold text-xl">
+            <div className="flex size-16 shrink-0 items-center justify-center rounded-[24px] bg-[linear-gradient(135deg,rgba(126,231,255,0.18),rgba(132,144,255,0.18))] font-semibold text-cyan-100 text-xl">
               {initials(profile.displayName)}
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-wider text-gray-400">Credibility</p>
+              <p className="app-kicker">Credibility</p>
               <p className={`text-4xl font-semibold tabular-nums ${credibilityColor(profile.credibilityScore)}`}>
                 {profile.credibilityScore}
               </p>
-              <p className="text-[11px] text-gray-500 mt-1">{completenessPct}% data completeness</p>
+              <p className="mt-1 text-[11px] text-slate-400">{completenessPct}% data completeness</p>
             </div>
           </div>
           <div className="md:col-span-8">
-            <p className="text-[11px] uppercase tracking-wider text-gray-400 mb-2">Profile snapshot</p>
+            <p className="app-kicker mb-2">Profile snapshot</p>
             <div className="flex flex-wrap gap-2 mb-4">
               {[
                 profile.profileSnapshot.persona,
@@ -78,20 +88,20 @@ export default async function UserDetailPage({ params }: Props) {
               ]
                 .filter(Boolean)
                 .map((tag) => (
-                  <span key={tag} className="text-xs bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full">
+                  <span key={tag} className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-slate-200">
                     {tag}
                   </span>
                 ))}
             </div>
             {profile.basic.experience.length > 0 && (
-              <p className="text-sm text-gray-600">
-                <span className="text-gray-400">Experience: </span>
+              <p className="text-sm text-slate-300">
+                <span className="text-slate-500">Experience: </span>
                 {profile.basic.experience.slice(0, 2).join(' · ')}
               </p>
             )}
             {profile.basic.education.length > 0 && (
-              <p className="text-sm text-gray-600">
-                <span className="text-gray-400">Education: </span>
+              <p className="text-sm text-slate-300">
+                <span className="text-slate-500">Education: </span>
                 {profile.basic.education.slice(0, 2).join(' · ')}
               </p>
             )}
@@ -100,20 +110,24 @@ export default async function UserDetailPage({ params }: Props) {
 
         {/* Radar charts */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="font-semibold text-sm text-gray-900 mb-1">Data Completeness</h3>
-            <p className="text-xs text-gray-500 mb-3">Coverage across personal_data and ai_data branches.</p>
+          <div className="panel-soft p-6">
+            <h3 className="mb-1 text-sm font-semibold text-white">Data Completeness</h3>
+            <p className="mb-3 text-xs text-slate-400">Coverage across personal_data and ai_data branches.</p>
             <UserDataRadar data={profile.dataCompleteness} variant="completeness" showAxis />
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="font-semibold text-sm text-gray-900 mb-1">Persona Profile</h3>
-            <p className="text-xs text-gray-500 mb-3">Synthesized from ai_data character / values / taste.</p>
+          <div className="panel-soft p-6">
+            <h3 className="mb-1 text-sm font-semibold text-white">Persona Profile</h3>
+            <p className="mb-3 text-xs text-slate-400">Synthesized from ai_data character / values / taste.</p>
             <UserDataRadar data={profile.personaProfile} variant="persona" showAxis />
           </div>
         </section>
 
         {/* Gut Check Analyze */}
-        <AnalyzePanel userId={profile.id} userName={profile.displayName} />
+        <AnalyzePanel
+          userId={profile.id}
+          userName={profile.displayName}
+          moments={likelyMoments}
+        />
 
         {/* Insight breakdown by category */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -166,8 +180,8 @@ export default async function UserDetailPage({ params }: Props) {
 
 function CategoryCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <h3 className="font-semibold text-sm text-gray-900 mb-3">{title}</h3>
+    <div className="panel-soft p-6">
+      <h3 className="mb-3 text-sm font-semibold text-white">{title}</h3>
       <dl className="space-y-2">{children}</dl>
     </div>
   );
@@ -175,9 +189,9 @@ function CategoryCard({ title, children }: { title: string; children: React.Reac
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b last:border-0 border-gray-100 py-1.5">
-      <dt className="text-xs text-gray-500">{label}</dt>
-      <dd className="text-sm font-medium text-gray-900 text-right truncate">{value}</dd>
+    <div className="flex items-baseline justify-between gap-3 border-b border-white/[0.06] py-1.5 last:border-0">
+      <dt className="text-xs text-slate-400">{label}</dt>
+      <dd className="truncate text-right text-sm font-medium text-white">{value}</dd>
     </div>
   );
 }

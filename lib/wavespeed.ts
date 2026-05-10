@@ -14,6 +14,7 @@ interface WaveSpeedJsonOptions {
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  timeoutMs?: number;
 }
 
 interface WaveSpeedResponse {
@@ -67,6 +68,7 @@ export async function waveSpeedJson<T>({
   model,
   temperature = 0.35,
   maxTokens = 1400,
+  timeoutMs = 6500,
 }: WaveSpeedJsonOptions): Promise<T> {
   const apiKey = process.env.WAVESPEED_API_KEY?.trim();
   if (!apiKey) {
@@ -78,20 +80,34 @@ export async function waveSpeedJson<T>({
     { role: 'user', content: prompt },
   ];
 
-  const response = await fetch(`${waveSpeedBaseUrl()}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: model ?? waveSpeedModel(),
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-      response_format: { type: 'json_object' },
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch(`${waveSpeedBaseUrl()}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model ?? waveSpeedModel(),
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+        response_format: { type: 'json_object' },
+      }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`WaveSpeed request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const text = await response.text();

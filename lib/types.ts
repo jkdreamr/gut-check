@@ -193,6 +193,7 @@ export interface RestaurantVisit {
   visitCount: number;
   returnRate: number; // 0–1
   avgRating: number;
+  lastVisit?: string;
 }
 
 export interface SocialRating {
@@ -261,6 +262,48 @@ export interface ScenarioResultMissed {
 
 export type ScenarioResult = ScenarioResultTriggered | ScenarioResultMissed;
 
+export type DecisionMomentKind =
+  | 'payment'
+  | 'location'
+  | 'subscription'
+  | 'health'
+  | 'restaurant'
+  | 'custom';
+
+export interface TransactionSignal {
+  merchantName: string;
+  amount: number;
+  currency: string;
+  category: string;
+  status: 'pending' | 'approved' | 'held';
+  source: 'demo' | 'inferred' | 'future_payment_api';
+  note?: string;
+}
+
+export interface LocationSignal {
+  placeName: string;
+  latitude?: number;
+  longitude?: number;
+  distanceMeters?: number;
+  source: 'live' | 'demo' | 'synthetic';
+  permission: 'granted' | 'denied' | 'unavailable' | 'synthetic';
+}
+
+export interface DecisionMoment {
+  id: string;
+  kind: DecisionMomentKind;
+  title: string;
+  description: string;
+  userId: string;
+  source: 'live' | 'demo' | 'synthetic';
+  timestamp: string;
+  transaction?: TransactionSignal;
+  location?: LocationSignal;
+  signalSummary?: string[];
+  likelyScenarioIds?: string[];
+  policyIntent?: 'protect' | 'nudge';
+}
+
 export interface ScenarioPerformanceSnapshot {
   fired: number;
   accepted: number;
@@ -286,7 +329,10 @@ export interface AutonomyCandidate {
   timingScore: number;
   fatiguePenalty: number;
   behaviorFit: number;
+  noveltyBoost: number;
+  momentAlignment: number;
   historicalAcceptance: number | null;
+  decisionExplanation: string;
   creativeDirection: string;
   reasons: string[];
 }
@@ -319,6 +365,7 @@ export interface ProposalPayload {
 
 export interface AnalyzeResponse {
   user: NewnalUser;
+  decisionMoment?: DecisionMoment;
   results: ScenarioResultTriggered[];
   topProposals: {
     scenario: ScenarioResultTriggered;

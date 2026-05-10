@@ -205,8 +205,9 @@ async function waveSpeedGenerate(
   const parsed = await waveSpeedJson<{ headline?: string; body?: string }>({
     system: 'You write short, high-signal intervention cards and return only valid JSON.',
     model: recommendedWaveSpeedModel(scenario.scenarioType),
-    temperature: 0.55,
-    maxTokens: 500,
+    temperature: 0.35,
+    maxTokens: 220,
+    timeoutMs: 3600,
     prompt: `Write a micro-notification for the Newnal phone.
 Scenario: ${scenario.scenarioName} (${scenario.scenarioType})
 Evidence: ${scenario.evidencePoints.join(' | ')}

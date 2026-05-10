@@ -28,25 +28,25 @@ export default async function UsersPage({ searchParams }: SearchProps) {
   return (
     <main>
       <TopBar
-        title="Personal AI Universe"
-        subtitle="Search the live Newnal Plaza by natural language and open a user to let autopilot inspect them."
+        title="People"
+        subtitle="Search Newnal in plain English, open a person, and let Gut Check decide whether a ping is worth sending."
         right={(
           <Link
             href="/demo"
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            className="app-button-secondary px-4 py-2.5"
           >
             Open demo
           </Link>
         )}
       />
-      <div className="px-8 py-8 space-y-6">
+      <div className="mx-auto max-w-[1600px] px-5 py-8 sm:px-8 space-y-6">
         <UserSearchBar initial={q} />
         {error ? (
-          <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-4 text-sm">
+          <div className="panel-muted border-rose-300/20 bg-rose-300/[0.08] p-4 text-sm text-rose-100">
             Newnal API error: {error}
           </div>
         ) : users.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-sm text-gray-500">
+          <div className="panel-soft p-12 text-center text-sm text-slate-400">
             No matches. Try a different query.
           </div>
         ) : (

@@ -371,6 +371,7 @@ function synthRestaurantHistory(detail: RealNewnalDetail, rng: SeededRng): Resta
       visitCount: high ? rng.int(6, 12) : rng.int(2, 5),
       returnRate: high ? 0.78 + rng.next() * 0.2 : rng.next() * 0.6,
       avgRating: high ? 4.2 + rng.next() * 0.7 : 3.0 + rng.next() * 1.5,
+      lastVisit: new Date(Date.now() - rng.int(high ? 65 : 10, high ? 140 : 55) * 86_400_000).toISOString(),
     });
   }
   return out;

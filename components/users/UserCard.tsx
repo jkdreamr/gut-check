@@ -9,47 +9,55 @@ interface Props {
 
 export function UserCard({ user }: Props) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 hover:border-rose-200 hover:shadow-sm transition-all">
+    <div className="panel-soft overflow-hidden p-5 transition duration-200 hover:border-cyan-300/[0.18] hover:bg-white/[0.08]">
       <Link href={`/users/${encodeURIComponent(user.id)}`} className="block">
-        <div className="flex items-start gap-3">
-          <div className="size-12 shrink-0 rounded-full bg-gradient-to-br from-rose-100 to-amber-100 flex items-center justify-center text-rose-700 font-semibold">
+        <div className="flex items-start gap-4">
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(126,231,255,0.18),rgba(132,144,255,0.18))] text-sm font-semibold text-cyan-100">
             {initials(user.displayName)}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm text-gray-900 truncate">{user.displayName}</p>
-            <p className="text-[11px] text-gray-400 font-mono truncate" title={user.id}>{shortDid(user.id)}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold text-white">{user.displayName}</p>
+            <p className="truncate font-mono text-[11px] text-slate-500" title={user.id}>
+              {shortDid(user.id)}
+            </p>
             {user.matchReason && (
-              <p className="text-[11px] text-gray-500 mt-1 line-clamp-2">{user.matchReason}</p>
+              <p className="mt-2 line-clamp-2 text-xs leading-6 text-slate-300">{user.matchReason}</p>
             )}
           </div>
         </div>
-        <div className="flex items-end justify-between mt-4">
+        <div className="mt-5 flex items-end justify-between gap-4">
           <div>
-            <p className="text-[10px] uppercase tracking-wide text-gray-400">Credibility</p>
-            <p className={`text-xl font-semibold ${credibilityColor(user.credibilityScore)}`}>
+            <p className="app-kicker">Credibility</p>
+            <p className={`mt-1 text-2xl font-semibold ${credibilityColor(user.credibilityScore)}`}>
               {user.credibilityScore}
             </p>
           </div>
-          <div className="w-20 h-20">
-            <UserDataRadar data={user.dataCompleteness} variant="completeness" size={80} />
+          <div className="panel-muted flex size-24 items-center justify-center p-2">
+            <UserDataRadar data={user.dataCompleteness} variant="completeness" size={88} />
           </div>
         </div>
         {user.matchScore !== undefined && (
-          <div className="mt-4 flex items-center gap-2">
-            <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
-              <div className="h-full bg-rose-500" style={{ width: `${user.matchScore}%` }} />
+          <div className="mt-4">
+            <div className="mb-1 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-slate-500">
+              <span>Search fit</span>
+              <span>{user.matchScore}</span>
             </div>
-            <span className="text-[11px] text-gray-500">{user.matchScore}</span>
+            <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
+              <div
+                className="h-full rounded-full bg-[linear-gradient(90deg,rgba(126,231,255,0.92),rgba(132,144,255,0.92))]"
+                style={{ width: `${user.matchScore}%` }}
+              />
+            </div>
           </div>
         )}
       </Link>
 
-      <div className="mt-4 flex items-center gap-2">
-        <Link
-          href={`/users/${encodeURIComponent(user.id)}`}
-          className="rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white hover:bg-black"
-        >
+      <div className="mt-5 flex items-center gap-2">
+        <Link href={`/users/${encodeURIComponent(user.id)}`} className="app-button-primary px-4 py-2.5 text-xs">
           Open profile
+        </Link>
+        <Link href={`/demo?did=${encodeURIComponent(user.id)}`} className="app-button-secondary px-4 py-2.5 text-xs">
+          Live demo
         </Link>
       </div>
     </div>

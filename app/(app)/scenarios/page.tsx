@@ -54,7 +54,7 @@ export default async function ScenariosPage() {
     ]);
   } catch (error) {
     databaseWarning = explainDatabaseIssue(error);
-    console.warn(`AI Brain telemetry unavailable: ${databaseWarning}`);
+    console.warn(`Pattern telemetry unavailable: ${databaseWarning}`);
   }
 
   const countById = Object.fromEntries(counts.map((row) => [row.scenarioId, row._count._all]));
@@ -100,8 +100,8 @@ export default async function ScenariosPage() {
   return (
     <main>
       <TopBar
-        title="AI Brain"
-        subtitle="Human thresholds are retired. The autonomous policy layer now decides which scenarios deserve interruption rights."
+        title="Patterns"
+        subtitle="The fixed rules still matter, but WaveSpeed can keep inventing new patterns based on the person and the moment."
       />
       <div className="px-8 py-8 space-y-8">
         {databaseWarning && (
@@ -112,34 +112,34 @@ export default async function ScenariosPage() {
         <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Metric label="Operator involvement" value="0%" sub="model-owned gating + dispatch" />
           <Metric
-            label="Adaptive floors"
+            label="Active patterns"
             value={`${telemetry.length}`}
-            sub={waveSpeedActive ? 'core + generated scenarios self-governed' : 'all scenarios self-governed'}
+            sub={waveSpeedActive ? 'core rules plus generated patterns' : 'core rules only'}
           />
           <Metric label="Global acceptance" value={`${globalAcceptance}%`} sub={`${totalAccepted} accepted of ${totalSent}`} />
-          <Metric label="Learning loop" value={totalSent === 0 ? 'Cold start' : 'Online'} sub={waveSpeedActive ? 'acceptance data + live synthesis' : 'acceptance data feeding posture'} />
+          <Metric label="Learning loop" value={totalSent === 0 ? 'Cold start' : 'Online'} sub={waveSpeedActive ? 'feedback plus live synthesis' : 'feedback shaping the send bar'} />
         </section>
 
         <section className="rounded-[1.5rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white p-6">
-          <p className="text-[11px] uppercase tracking-[0.22em] text-cyan-300">Governance Doctrine</p>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-cyan-300">How it thinks</p>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
             <DoctrineCard
-              title="Evidence beats knobs"
-              body="Every rule still emits a confidence score, but the shipping floor is now adaptive and model-owned rather than manually tuned."
+              title="Evidence beats settings"
+              body="Each rule still emits a confidence score, but the send bar now moves on its own instead of waiting for a human to tune it."
             />
             <DoctrineCard
               title="Silence is allowed"
-              body="If timing is weak, fatigue is high, or acceptance priors are poor, the AI holds fire instead of forcing another proposal."
+              body="If timing is weak, fatigue is high, or the history is shaky, the agent waits instead of forcing another message."
             />
             <DoctrineCard
-              title="Outcomes reshape posture"
-              body={waveSpeedActive ? 'Historical acceptance rates shape both the core rules and any WaveSpeed-generated scenario that proves worth repeating.' : 'Historical acceptance rates lower or raise the send floor automatically, so each scenario develops a live precision profile.'}
+              title="Good outcomes earn trust"
+              body={waveSpeedActive ? 'Accepted pings make both the core rules and the generated patterns easier to trust next time.' : 'Accepted pings lower the send bar a bit. Dismissed ones push it back up.'}
             />
           </div>
         </section>
 
-        <ScenarioGroup label="Warnings · protective interventions" items={warnings} />
-        <ScenarioGroup label="Nudges · momentum interventions" items={nudges} />
+        <ScenarioGroup label="Warnings · protective" items={warnings} />
+        <ScenarioGroup label="Nudges · helpful" items={nudges} />
       </div>
     </main>
   );

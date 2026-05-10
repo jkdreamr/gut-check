@@ -2,24 +2,28 @@
 
 import { useState } from 'react';
 import { ProposalCard } from '@/components/proposals/ProposalCard';
+import { ThinkingState } from '@/components/ui/ThinkingState';
 import { isGeneratedScenarioId } from '@/lib/scenarios';
 import { scenarioBadgeClass } from '@/lib/utils';
-import type { AnalyzeResponse } from '@/lib/types';
+import type { AnalyzeResponse, DecisionMoment } from '@/lib/types';
 
 type ProposalEntry = AnalyzeResponse['topProposals'][number];
 
 interface Props {
   userId: string;
   userName: string;
+  moments?: DecisionMoment[];
 }
 
-export function AnalyzePanel({ userId, userName }: Props) {
+export function AnalyzePanel({ userId, userName, moments = [] }: Props) {
   const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
   const [running, setRunning] = useState(false);
   const [active, setActive] = useState<number>(0);
+  const [momentIndex, setMomentIndex] = useState(0);
   const [sending, setSending] = useState(false);
   const [sendResults, setSendResults] = useState<Record<string, { circleId?: string; success: boolean; error?: string }>>({});
   const [error, setError] = useState<string | null>(null);
+  const selectedMoment = moments[momentIndex];
 
   async function sendProposal(entry: ProposalEntry) {
     setSending(true);
@@ -55,7 +59,12 @@ export function AnalyzePanel({ userId, userName }: Props) {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, name: userName }),
+        body: JSON.stringify({
+          userId,
+          name: userName,
+          mode: 'default',
+          moment: selectedMoment,
+        }),
       });
       const data = (await res.json()) as AnalyzeResponse & { error?: string };
       if (!res.ok || data.error) {
@@ -99,29 +108,29 @@ export function AnalyzePanel({ userId, userName }: Props) {
   const primaryResult = primaryScenarioId ? sendResults[primaryScenarioId] : undefined;
 
   return (
-    <section className="rounded-[1.5rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white overflow-hidden">
-      <div className="px-6 py-5 border-b border-white/10 flex items-start justify-between gap-4">
+    <section className="panel-elevated overflow-hidden">
+      <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="inline-flex items-center rounded-full border border-cyan-400/40 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-200">
-              Autopilot Engaged
+              Live decision
             </span>
             <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-300">
-              Operator Involvement: 0
+              Real send path
             </span>
           </div>
-          <h2 className="text-xl font-semibold text-white">AI Decision Layer</h2>
+          <h2 className="text-xl font-semibold text-white">Should this person get a ping?</h2>
           <p className="text-sm text-slate-300 mt-1 max-w-2xl">
-            The model now owns scenario gating, confidence floors, send timing, and optionally synthesizes additional scenarios beyond the fixed core set.
+            Gut Check looks at the moment, scores the options, and sends only if the case is strong enough.
           </p>
         </div>
         <button
           type="button"
           onClick={runAnalysis}
           disabled={running || sending}
-          className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-300 disabled:opacity-50"
+          className="app-button-primary px-4 py-2.5 disabled:opacity-50"
         >
-          {running ? 'Running Autopilot…' : analysis ? 'Re-run Autopilot' : 'Run Autopilot'}
+          {running ? 'Checking...' : analysis ? 'Run again' : 'Run check'}
         </button>
       </div>
 
@@ -131,12 +140,67 @@ export function AnalyzePanel({ userId, userName }: Props) {
         </div>
       )}
 
+      {moments.length > 0 && (
+        <div className="mx-6 mt-6 grid grid-cols-1 xl:grid-cols-3 gap-3">
+          {moments.map((moment, index) => {
+            const selected = index === momentIndex;
+            return (
+              <button
+                key={moment.id}
+                type="button"
+                onClick={() => setMomentIndex(index)}
+                className={`rounded-2xl border p-4 text-left transition-all ${
+                  selected
+                    ? 'border-cyan-300/60 bg-cyan-300/10 shadow-[0_0_0_1px_rgba(103,232,249,0.18)]'
+                    : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/[0.07]'
+                }`}
+              >
+                <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-400">
+                  <span>{moment.kind}</span>
+                  <span className="rounded-full border border-white/10 px-2 py-0.5 text-[9px]">
+                    {moment.source}
+                  </span>
+                  {moment.transaction?.status && (
+                    <span className="rounded-full border border-emerald-300/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] text-emerald-200">
+                      {moment.transaction.status}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-2 text-sm font-semibold text-white">{moment.title}</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-300">{moment.description}</p>
+                {moment.signalSummary && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {moment.signalSummary.slice(0, 3).map((signal) => (
+                      <span
+                        key={signal}
+                        className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] text-slate-300"
+                      >
+                        {signal}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {!analysis ? (
         <div className="px-6 py-16 text-center">
-          <div className="mx-auto max-w-xl rounded-2xl border border-dashed border-white/15 bg-white/5 px-6 py-12">
-            <p className="text-sm text-slate-300">
-              Launch autopilot to let the model decide whether {userName} should be interrupted at all, which scenario wins, and whether the proposal should fire immediately.
-            </p>
+          <div className="mx-auto max-w-xl">
+            {running ? (
+              <ThinkingState
+                title="Checking the moment"
+                body={`Gut Check is ranking the strongest reasons to message ${userName}, then deciding if the ping should really go out.`}
+              />
+            ) : (
+              <div className="panel-muted border-dashed px-6 py-12">
+                <p className="text-sm text-slate-300">
+                  Run a check to see whether {userName} should get a message right now, which scenario wins, and whether the ping should go out immediately.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -146,13 +210,14 @@ export function AnalyzePanel({ userId, userName }: Props) {
               action={analysis.autonomy.recommendedAction}
               summaryHeadline={analysis.autonomy.summaryHeadline}
               summaryBody={analysis.autonomy.summaryBody}
+              moment={analysis.decisionMoment}
               primaryResult={primaryResult}
               sending={sending}
             />
 
             {proposals.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 px-6 py-12 text-center text-sm text-slate-300">
-                No scenario crossed the model-owned activation logic for this user.
+              <div className="rounded-2xl border border-dashed border-white/[0.15] bg-white/5 px-6 py-12 text-center text-sm text-slate-300">
+                Nothing strong enough to send right now.
               </div>
             ) : (
               proposals.map((entry, index) => {
@@ -179,6 +244,7 @@ export function AnalyzePanel({ userId, userName }: Props) {
                       <MetricChip label="Send Score" value={`${Math.round(candidate.sendScore * 100)}%`} />
                       <MetricChip label="Predicted Acceptance" value={`${Math.round(candidate.acceptancePrediction * 100)}%`} />
                       <MetricChip label="Adaptive Floor" value={`${Math.round(candidate.adaptiveFloor * 100)}%`} />
+                      <MetricChip label="Moment Align." value={`${Math.round(candidate.momentAlignment * 100)}%`} />
                       <MetricChip
                         label="Posture"
                         value={
@@ -196,7 +262,7 @@ export function AnalyzePanel({ userId, userName }: Props) {
                       )}
                       {isGeneratedScenarioId(entry.scenario.scenarioId) && (
                         <span className="inline-flex items-center rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-amber-100">
-                          Generated
+                          Fresh case
                         </span>
                       )}
                     </div>
@@ -207,7 +273,12 @@ export function AnalyzePanel({ userId, userName }: Props) {
                       <SignalBar label="Timing" value={candidate.timingScore} />
                       <SignalBar label="Behavior Fit" value={candidate.behaviorFit} />
                       <SignalBar label="Evidence" value={candidate.confidence} />
+                      <SignalBar label="Novelty" value={candidate.noveltyBoost * 8} />
                       <SignalBar label="Fatigue Penalty" value={1 - candidate.fatiguePenalty} />
+                    </div>
+
+                    <div className="mt-4 rounded-xl bg-white/5 px-3 py-3 text-sm text-slate-200">
+                      {candidate.decisionExplanation}
                     </div>
 
                     <ul className="mt-4 space-y-1.5">
@@ -220,7 +291,7 @@ export function AnalyzePanel({ userId, userName }: Props) {
                     </ul>
 
                     {sent && (
-                      <div className={`mt-4 rounded-xl px-3 py-2 text-xs ${sent.success ? 'bg-emerald-500/15 text-emerald-200' : 'bg-rose-500/15 text-rose-200'}`}>
+                      <div className={`mt-4 rounded-xl px-3 py-2 text-xs ${sent.success ? 'bg-emerald-500/[0.15] text-emerald-200' : 'bg-rose-500/[0.15] text-rose-200'}`}>
                         {sent.success
                           ? `Sent automatically · circle ${sent.circleId?.slice(0, 12)}…`
                           : `Dispatch failed · ${sent.error?.slice(0, 120)}`}
@@ -233,13 +304,13 @@ export function AnalyzePanel({ userId, userName }: Props) {
           </div>
 
           <div className="xl:col-span-2 space-y-4">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="panel-muted p-5">
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Policy Summary</p>
               <p className="mt-2 text-lg font-semibold text-white">{analysis.autonomy.summaryHeadline}</p>
               <p className="mt-2 text-sm leading-relaxed text-slate-300">{analysis.autonomy.summaryBody}</p>
               <div className="mt-4 space-y-2">
                 {analysis.autonomy.narrative.map((line) => (
-                  <div key={line} className="rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-200">
+                  <div key={line} className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-slate-200">
                     {line}
                   </div>
                 ))}
@@ -266,7 +337,7 @@ export function AnalyzePanel({ userId, userName }: Props) {
                     scenarioType={activeProposal.scenario.scenarioType}
                   />
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <div className="panel-muted p-5">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Creative Direction</p>
                   <p className="mt-2 text-sm leading-relaxed text-slate-200">
                     {activeCandidate.creativeDirection}
@@ -274,8 +345,8 @@ export function AnalyzePanel({ userId, userName }: Props) {
                 </div>
               </>
             ) : (
-              <div className="h-[420px] rounded-[2rem] border border-dashed border-white/15 bg-white/5 flex items-center justify-center text-center text-sm text-slate-400 px-8">
-                Autopilot did not find a candidate worth rendering to the phone.
+              <div className="panel-muted flex h-[420px] items-center justify-center border-dashed px-8 text-center text-sm text-slate-400">
+                No message made it far enough to show on the phone.
               </div>
             )}
           </div>
@@ -289,12 +360,14 @@ function DecisionBanner({
   action,
   summaryHeadline,
   summaryBody,
+  moment,
   primaryResult,
   sending,
 }: {
   action: AnalyzeResponse['autonomy']['recommendedAction'];
   summaryHeadline: string;
   summaryBody: string;
+  moment?: DecisionMoment;
   primaryResult?: { circleId?: string; success: boolean; error?: string };
   sending: boolean;
 }) {
@@ -309,6 +382,11 @@ function DecisionBanner({
         <span className="text-[11px] uppercase tracking-[0.2em]">
           {action === 'send_now' ? 'Autonomous Dispatch' : 'Autonomous Hold'}
         </span>
+        {moment && (
+          <span className="text-[11px] uppercase tracking-[0.2em] opacity-80">
+            {moment.title}
+          </span>
+        )}
         {sending && <span className="text-[11px] uppercase tracking-[0.2em]">Dispatching…</span>}
         {primaryResult?.success && (
           <span className="text-[11px] uppercase tracking-[0.2em]">
