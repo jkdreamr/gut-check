@@ -22,7 +22,7 @@ const fadeUp: Variants = {
 
 export function LandingPageView() {
   const reduceMotion = useReducedMotion();
-  const marketingVideoUrl = process.env.NEXT_PUBLIC_MARKETING_VIDEO_URL;
+  const marketingVideoUrl = process.env.NEXT_PUBLIC_MARKETING_VIDEO_URL || '/marketing/gut-check-ad.mp4';
   const marketingPosterUrl = process.env.NEXT_PUBLIC_MARKETING_VIDEO_POSTER_URL;
 
   return (
