@@ -9,17 +9,24 @@ import { adaptUserSummary } from '@/lib/synthesize';
 
 export const dynamic = 'force-dynamic';
 
+const DEFAULT_QUERY = 'all users with rich profile data';
+
 interface SearchProps {
   searchParams: Promise<{ q?: string }> | { q?: string };
 }
 
 export default async function UsersPage({ searchParams }: SearchProps) {
   const params = await Promise.resolve(searchParams);
-  const q = params?.q || 'all users with rich profile data';
+  const q = params?.q || DEFAULT_QUERY;
   let users = [] as ReturnType<typeof adaptUserSummary>[];
   let error: string | undefined;
   try {
-    const real = await discoverUsers(q);
+    const real = await discoverUsers(
+      q,
+      q === DEFAULT_QUERY
+        ? { revalidate: 45, tags: ['people-default-search'] }
+        : undefined,
+    );
     users = real.map(adaptUserSummary);
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);

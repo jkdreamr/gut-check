@@ -21,7 +21,12 @@ export function AnalyzePanel({ userId, userName, moments = [] }: Props) {
   const [active, setActive] = useState<number>(0);
   const [momentIndex, setMomentIndex] = useState(0);
   const [sending, setSending] = useState(false);
-  const [sendResults, setSendResults] = useState<Record<string, { circleId?: string; success: boolean; error?: string }>>({});
+  const [sendResults, setSendResults] = useState<Record<string, {
+    circleId?: string;
+    success: boolean;
+    error?: string;
+    logWarning?: string;
+  }>>({});
   const [error, setError] = useState<string | null>(null);
   const selectedMoment = moments[momentIndex];
 
@@ -43,7 +48,12 @@ export function AnalyzePanel({ userId, userName, moments = [] }: Props) {
           body: entry.body,
         }),
       });
-      const data = (await res.json()) as { circleId?: string; success: boolean; error?: string };
+      const data = (await res.json()) as {
+        circleId?: string;
+        success: boolean;
+        error?: string;
+        logWarning?: string;
+      };
       setSendResults((prev) => ({ ...prev, [entry.scenario.scenarioId]: data }));
       return data;
     } finally {
@@ -295,6 +305,7 @@ export function AnalyzePanel({ userId, userName, moments = [] }: Props) {
                         {sent.success
                           ? `Sent automatically · circle ${sent.circleId?.slice(0, 12)}…`
                           : `Dispatch failed · ${sent.error?.slice(0, 120)}`}
+                        {sent.success && sent.logWarning ? ` · ${sent.logWarning}` : ''}
                       </div>
                     )}
                   </button>
@@ -368,7 +379,7 @@ function DecisionBanner({
   summaryHeadline: string;
   summaryBody: string;
   moment?: DecisionMoment;
-  primaryResult?: { circleId?: string; success: boolean; error?: string };
+  primaryResult?: { circleId?: string; success: boolean; error?: string; logWarning?: string };
   sending: boolean;
 }) {
   const tone =
@@ -399,6 +410,11 @@ function DecisionBanner({
       {primaryResult && !primaryResult.success && (
         <p className="mt-2 text-sm text-rose-100">
           Dispatch failed: {primaryResult.error?.slice(0, 120)}
+        </p>
+      )}
+      {primaryResult?.success && primaryResult.logWarning && (
+        <p className="mt-2 text-sm text-amber-100">
+          Sent to Newnal, but the learning loop could not log it: {primaryResult.logWarning}
         </p>
       )}
     </div>

@@ -16,6 +16,12 @@ import type {
 
 const DEFAULT_BASE = 'https://agentplace.newnal.ai/api/service-agent';
 
+interface ServiceAgentFetchOptions {
+  cache?: RequestCache;
+  revalidate?: number | false;
+  tags?: string[];
+}
+
 function getBase() {
   return process.env.NEWNAL_API_BASE || DEFAULT_BASE;
 }
@@ -37,14 +43,35 @@ function authHeaders() {
   };
 }
 
+function buildFetchInit(
+  init: RequestInit,
+  options?: ServiceAgentFetchOptions,
+): RequestInit & { next?: { revalidate?: number | false; tags?: string[] } } {
+  const next =
+    options?.revalidate || options?.tags?.length
+      ? {
+        ...(options.revalidate ? { revalidate: options.revalidate } : {}),
+        ...(options.tags?.length ? { tags: options.tags } : {}),
+      }
+      : undefined;
+
+  return {
+    ...init,
+    cache: options?.cache ?? (options?.revalidate ? 'force-cache' : 'no-store'),
+    ...(next ? { next } : {}),
+  };
+}
+
 export async function searchPersonalAis(
   query: string,
+  options?: ServiceAgentFetchOptions,
 ): Promise<RealNewnalSearchResponse> {
   const res = await fetch(`${getBase()}/personal-ai/search`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ query }),
-    cache: 'no-store',
+    ...buildFetchInit({
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ query }),
+    }, options),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -53,9 +80,12 @@ export async function searchPersonalAis(
   return (await res.json()) as RealNewnalSearchResponse;
 }
 
-export async function getPersonalAi(did: string): Promise<RealNewnalDetail> {
+export async function getPersonalAi(
+  did: string,
+  options?: ServiceAgentFetchOptions,
+): Promise<RealNewnalDetail> {
   const url = `${getBase()}/personal-ai/${encodeURIComponent(did)}`;
-  const res = await fetch(url, { headers: authHeaders(), cache: 'no-store' });
+  const res = await fetch(url, buildFetchInit({ headers: authHeaders() }, options));
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`getPersonalAi failed: ${res.status} ${text.slice(0, 200)}`);
@@ -82,8 +112,9 @@ export async function sendSimpleCircle(
 // Wraps the search and pulls out just the matched users.
 export async function discoverUsers(
   query = 'all users with rich profile data',
+  options?: ServiceAgentFetchOptions,
 ): Promise<RealNewnalPersonalAi[]> {
-  const resp = await searchPersonalAis(query);
+  const resp = await searchPersonalAis(query, options);
   return resp.personal_ai;
 }
 

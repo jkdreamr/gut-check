@@ -51,6 +51,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch
                 className={cn(
                   'group flex min-w-[180px] items-center gap-3 rounded-[20px] border px-3 py-3 transition-all duration-200 xl:min-w-0',
                   active

@@ -5,12 +5,15 @@ import { ProposalCard } from '@/components/proposals/ProposalCard';
 import { AcceptanceRateBar } from '@/components/proposals/AcceptanceRateBar';
 import { prisma } from '@/lib/prisma';
 import { explainDatabaseIssue, hasValidPostgresDatabaseUrl } from '@/lib/database';
-import { SCENARIOS } from '@/lib/scenarios';
+import { SCENARIOS, SCENARIO_META_BY_ID, isGeneratedScenarioId } from '@/lib/scenarios';
 import { discoverUsers } from '@/lib/newnal';
 
 async function getUserCount(): Promise<number> {
   try {
-    const users = await discoverUsers('anyone with a rich profile');
+    const users = await discoverUsers('anyone with a rich profile', {
+      revalidate: 60,
+      tags: ['dashboard-user-count'],
+    });
     return users.length;
   } catch {
     return 0;
@@ -20,7 +23,6 @@ async function getUserCount(): Promise<number> {
 export async function AppDashboard() {
   const waveSpeedActive = Boolean(process.env.WAVESPEED_API_KEY?.trim());
   const newnalConfigured = Boolean(process.env.NEWNAL_API_KEY?.trim());
-  const userCount = await getUserCount();
   let databaseWarning: string | null = null;
   let allLogs: Awaited<ReturnType<typeof prisma.proposalLog.findMany>> = [];
   let todaysLogs = 0;
@@ -28,9 +30,11 @@ export async function AppDashboard() {
   let totalAccepted = 0;
   let counts: Array<{ scenarioId: string; _count: { _all: number } }> = [];
   let acceptCounts: Array<{ scenarioId: string; _count: { _all: number } }> = [];
+  let seenScenarios: Array<{ scenarioId: string; scenarioName: string; scenarioType: string }> = [];
+  const userCountPromise = getUserCount();
 
   try {
-    [allLogs, todaysLogs, totalSent, totalAccepted, counts, acceptCounts] = await Promise.all([
+    [allLogs, todaysLogs, totalSent, totalAccepted, counts, acceptCounts, seenScenarios] = await Promise.all([
       prisma.proposalLog.findMany({ orderBy: { sentAt: 'desc' }, take: 5 }),
       prisma.proposalLog.count({
         where: { sentAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
@@ -46,6 +50,15 @@ export async function AppDashboard() {
         where: { accepted: true },
         _count: { _all: true },
       }),
+      prisma.proposalLog.findMany({
+        select: {
+          scenarioId: true,
+          scenarioName: true,
+          scenarioType: true,
+        },
+        distinct: ['scenarioId'],
+        orderBy: { sentAt: 'desc' },
+      }),
     ]);
   } catch (error) {
     const explanation = explainDatabaseIssue(error);
@@ -54,19 +67,39 @@ export async function AppDashboard() {
       databaseWarning = explanation;
     }
   }
+  const userCount = await userCountPromise;
 
   const acceptanceRate = totalSent === 0 ? 0 : Math.round((totalAccepted / totalSent) * 100);
   const countById = Object.fromEntries(counts.map((row) => [row.scenarioId, row._count._all]));
   const acceptById = Object.fromEntries(acceptCounts.map((row) => [row.scenarioId, row._count._all]));
-  const acceptanceRows = SCENARIOS
+  const generatedScenarios = seenScenarios
+    .filter((scenario) => !SCENARIO_META_BY_ID[scenario.scenarioId] && isGeneratedScenarioId(scenario.scenarioId))
+    .map((scenario) => ({
+      id: scenario.scenarioId,
+      name: scenario.scenarioName,
+      type: scenario.scenarioType as 'warning' | 'nudge',
+      generated: true,
+    }));
+  const trackedScenarios = [
+    ...SCENARIOS.map((scenario) => ({
+      id: scenario.id,
+      name: scenario.name,
+      type: scenario.type,
+      generated: false,
+    })),
+    ...generatedScenarios,
+  ];
+  const acceptanceRows = trackedScenarios
     .map((scenario) => ({
       scenarioName: scenario.name,
       type: scenario.type,
       fired: countById[scenario.id] ?? 0,
       accepted: acceptById[scenario.id] ?? 0,
+      generated: scenario.generated,
     }))
     .filter((row) => row.fired > 0)
     .sort((a, b) => b.fired - a.fired);
+  const trackedPatternCount = trackedScenarios.length;
 
   return (
     <main>
@@ -157,8 +190,8 @@ export async function AppDashboard() {
           <Metric label="Acceptance" value={`${acceptanceRate}%`} sub={`${totalAccepted} accepted of ${totalSent}`} />
           <Metric
             label="Coverage"
-            value={waveSpeedActive ? `${SCENARIOS.length}+` : SCENARIOS.length.toString()}
-            sub={waveSpeedActive ? 'core rules plus live synthesis' : 'core rules only'}
+            value={trackedPatternCount.toString()}
+            sub={waveSpeedActive ? 'core rules plus generated patterns' : 'core rules only'}
           />
         </section>
 
@@ -170,6 +203,11 @@ export async function AppDashboard() {
               <p className="mt-2 text-sm leading-6 text-slate-300">
                 Every accepted or dismissed ping changes the floor for the next one. The agent learns which patterns deserve an interrupt and which ones should stay quiet.
               </p>
+              {acceptanceRows.some((row) => row.generated) && (
+                <p className="mt-2 text-xs text-slate-400">
+                  Fresh WaveSpeed cases now count here too once they have been sent.
+                </p>
+              )}
             </div>
             {acceptanceRows.length === 0 ? (
               <div className="panel-muted mt-6 border-dashed px-6 py-12 text-center text-sm text-slate-400">
